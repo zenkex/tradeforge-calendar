@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P&L Calendar</title>
+
+  <!-- Preconnect for faster font delivery -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Space Grotesk (English) + Noto Sans SC (Chinese) from Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Space Grotesk', 'Noto Sans SC', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    html { -webkit-tap-highlight-color: transparent; }
+
+    /* Hide number input spinners */
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none; margin: 0;
+    }
+    input[type="number"] { -moz-appearance: textfield; }
+
+    /* Modal backdrop animation */
+    .modal-enter { animation: fadeIn 0.2s ease-out; }
+    .modal-card  { animation: scaleIn 0.2s ease-out; }
+    @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes scaleIn { from { opacity: 0; transform: scale(0.95) translateY(8px); }
+                          to   { opacity: 1; transform: scale(1) translateY(0); } }
+
+    /* Toast animation */
+    .toast-enter { animation: slideUp 0.3s ease-out; }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(16px); }
+                          to   { opacity: 1; transform: translateY(0); } }
+
+    /* Calendar cell transitions */
+    .cal-cell { transition: all 0.15s ease; }
+    .cal-cell:active { transform: scale(0.97); }
+
+    /* Weekend cells */
+    .weekend-cell { cursor: default; }
+
+    /* Pulse ring for today */
+    .today-ring { box-shadow: 0 0 0 2px rgba(161,161,170,0.6), 0 0 0 6px rgba(161,161,170,0.15); }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen font-sans antialiased">
+
+  <!-- ===== Toast Container ===== -->
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] pointer-events-none"></div>
+
+  <!-- ===== Main Container ===== -->
+  <div class="max-w-5xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+
+    <!-- Header -->
+    <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50">P&L Calendar</h1>
+      <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+        <button onclick="exportData()" title="导出 JSON 备份"
+          class="px-3 py-1.5 text-xs sm:text-sm rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors border border-zinc-700/50">
+          <span class="hidden sm:inline">导出</span> JSON
+        </button>
+        <label title="导入 JSON 备份"
+          class="px-3 py-1.5 text-xs sm:text-sm rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors border border-zinc-700/50 cursor-pointer">
+          <span class="hidden sm:inline">导入</span> JSON
+          <input type="file" accept=".json" onchange="importData(event)" class="hidden">
+        </label>
+      </div>
+    </header>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-3 gap-3 sm:gap-4 mb-6" id="statsCards"></div>
+
+    <!-- Month Navigation -->
+    <div class="flex items-center justify-between mb-4">
+      <button onclick="goToPrevMonth()"
+        class="p-2 rounded-lg hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
+        aria-label="上个月">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <h2 id="monthLabel" class="text-lg sm:text-xl font-semibold text-zinc-100"></h2>
+      <div class="flex items-center gap-2">
+        <button onclick="goToToday()"
+          class="px-3 py-1.5 text-xs sm:text-sm rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors border border-zinc-700/50">
+          今天
+        </button>
+        <button onclick="goToNextMonth()"
+          class="p-2 rounded-lg hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-zinc-200"
+          aria-label="下个月">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Calendar -->
+    <div class="bg-zinc-900/80 rounded-2xl p-3 sm:p-5 shadow-xl shadow-black/20 border border-zinc-800/50 mb-6">
+      <!-- Day-of-week headers -->
+      <div class="grid grid-cols-7 mb-2 text-center text-xs sm:text-sm font-medium text-zinc-500">
+        <span class="text-zinc-600">日</span>
+        <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span>
+        <span class="text-zinc-600">六</span>
+      </div>
+      <!-- Day cells -->
+      <div id="calendarGrid" class="grid grid-cols-7 gap-1.5 sm:gap-2"></div>
+    </div>
+
+    <!-- Advanced Stats -->
+    <div class="bg-zinc-900/80 rounded-2xl p-4 sm:p-5 shadow-xl shadow-black/20 border border-zinc-800/50 mb-6">
+      <h3 class="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-3">高级统计</h3>
+      <div id="advancedStats" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+    </div>
+
+    <!-- Chart -->
+    <div class="bg-zinc-900/80 rounded-2xl p-4 sm:p-5 shadow-xl shadow-black/20 border border-zinc-800/50">
+      <h3 class="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-3">本月每日盈亏</h3>
+      <div class="relative w-full" style="height:160px">
+        <canvas id="pnlChart" class="w-full h-full"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===== Modal ===== -->
+  <div id="modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" onclick="closeModal()">
+    <div class="absolute inset-0 bg-black/70 modal-enter"></div>
+    <div class="modal-card relative bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-700/50 w-full max-w-sm p-5 sm:p-6"
+         onclick="event.stopPropagation()">
+      <!-- Close button -->
+      <button onclick="closeModal()" class="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+
+      <h3 id="modalDate" class="text-lg font-semibold text-zinc-100 mb-5"></h3>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-zinc-500 mb-1.5 uppercase tracking-wide">盈亏金额</label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-lg font-mono">$</span>
+            <input id="modalPnl" type="number" step="0.01" placeholder="0.00"
+              class="w-full pl-9 pr-4 py-3 bg-zinc-800 rounded-xl border border-zinc-700/50 text-zinc-100 text-xl font-mono font-medium placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-all">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-zinc-500 mb-1.5 uppercase tracking-wide">备注（可选）</label>
+          <input id="modalNote" type="text" placeholder="交易备注..."
+            class="w-full px-4 py-2.5 bg-zinc-800 rounded-xl border border-zinc-700/50 text-zinc-200 text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-all">
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between mt-6 gap-3">
+        <button id="modalDelete" onclick="deleteModalEntry()"
+          class="px-4 py-2.5 text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-colors">
+          删除
+        </button>
+        <div class="flex gap-2 ml-auto">
+          <button onclick="closeModal()"
+            class="px-5 py-2.5 text-sm font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-xl transition-colors">
+            取消
+          </button>
+          <button onclick="saveModalEntry()"
+            class="px-5 py-2.5 text-sm font-semibold bg-zinc-100 text-zinc-900 hover:bg-white rounded-xl transition-colors">
+            保存
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // ============================================================
+  //  P&L Calendar - 本地交易盈亏日历
+  // ============================================================
+
+  const STORAGE_KEY = 'pnlCalendar';
+  const MONTH_NAMES = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  const DAY_NAMES = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+
+  // ---- State ----
+  const now = new Date();
+  let currentYear  = now.getFullYear();
+  let currentMonth = now.getMonth(); // 0-indexed
+  let pnlData = {};
+
+  // ---- Utilities ----
+  function fmtDate(y, m, d) {
+    return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  }
+
+  function parseDate(str) {
+    const [y, m, d] = str.split('-').map(Number);
+    return { y, m: m-1, d };
+  }
+
+  function fmtPnL(value, compact) {
+    const abs = Math.abs(value);
+    if (compact) {
+      if (abs >= 1e6) return (value >= 0 ? '$' : '-$') + (abs/1e6).toFixed(2) + 'M';
+      if (abs >= 1e3) return (value >= 0 ? '$' : '-$') + (abs/1e3).toFixed(2) + 'k';
+      return (value >= 0 ? '$' : '-$') + abs.toFixed(2);
+    }
+    const s = abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (value >= 0 ? '$' : '-$') + s;
+  }
+
+  function getDaysInMonth(y, m) {
+    return new Date(y, m+1, 0).getDate();
+  }
+
+  function getFirstDayOffset(y, m) {
+    return new Date(y, m, 1).getDay(); // 0=Sun, week starts Sunday
+  }
+
+  function isWeekend(y, m, d) {
+    const dow = new Date(y, m, d).getDay();
+    return dow === 0 || dow === 6;
+  }
+
+  function isCurrentDay(y, m, d) {
+    return y === now.getFullYear() && m === now.getMonth() && d === now.getDate();
+  }
+
+  // ---- Data ----
+  function loadData() {
+    try { pnlData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+    catch { pnlData = {}; }
+  }
+
+  function saveData() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(pnlData));
+  }
+
+  function getEntry(dateStr) {
+    return pnlData[dateStr] || null;
+  }
+
+  function setEntry(dateStr, pnl, note) {
+    pnlData[dateStr] = { pnl: Math.round(pnl * 100) / 100, note: (note || '').trim() };
+    saveData();
+  }
+
+  function deleteEntry(dateStr) {
+    delete pnlData[dateStr];
+    saveData();
+  }
+
+  // ---- Statistics ----
+  function getMonthEntries(year, month) {
+    const prefix = `${year}-${String(month+1).padStart(2,'0')}-`;
+    return Object.entries(pnlData)
+      .filter(([k]) => k.startsWith(prefix))
+      .map(([k, v]) => ({ date: k, ...v }));
+  }
+
+  function getYearEntries(year) {
+    const prefix = `${year}-`;
+    return Object.entries(pnlData)
+      .filter(([k]) => k.startsWith(prefix))
+      .map(([k, v]) => ({ date: k, ...v }));
+  }
+
+  function sumPnL(entries) {
+    return entries.reduce((s, e) => s + e.pnl, 0);
+  }
+
+  function calcTradeStats(entries) {
+    const nonZero = entries.filter(e => e.pnl !== 0);
+    const wins  = nonZero.filter(e => e.pnl > 0);
+    const losses = nonZero.filter(e => e.pnl < 0);
+    const totalPnL = sumPnL(nonZero);
+    const tradingDays = nonZero.length;
+    const winRate = (wins.length + losses.length) > 0
+      ? (wins.length / (wins.length + losses.length) * 100) : 0;
+    const avgWin  = wins.length  ? sumPnL(wins) / wins.length : 0;
+    const avgLoss = losses.length ? sumPnL(losses) / losses.length : 0;
+    const totalWins = sumPnL(wins);
+    const totalLosses = Math.abs(sumPnL(losses));
+    const profitFactor = totalLosses !== 0 ? totalWins / totalLosses : (totalWins > 0 ? Infinity : 0);
+    const best  = nonZero.length ? Math.max(...nonZero.map(e => e.pnl)) : null;
+    const worst = nonZero.length ? Math.min(...nonZero.map(e => e.pnl)) : null;
+
+    // Streak
+    const sorted = nonZero.sort((a, b) => b.date.localeCompare(a.date)); // newest first
+    let streak = 0, streakType = null;
+    for (const e of sorted) {
+      const t = e.pnl > 0 ? 'W' : 'L';
+      if (streakType === null) { streakType = t; streak = 1; }
+      else if (t === streakType) { streak++; }
+      else break;
+    }
+
+    return { tradingDays, winRate, avgWin, avgLoss, profitFactor, best, worst, totalPnL, streak, streakType, wins: wins.length, losses: losses.length };
+  }
+
+  // ---- Rendering ----
+  function renderAll() {
+    renderStatsCards();
+    renderCalendar();
+    renderAdvancedStats();
+    drawChart();
+    document.getElementById('monthLabel').textContent = `${currentYear}年 ${MONTH_NAMES[currentMonth]}`;
+  }
+
+  function renderStatsCards() {
+    const monthEntries = getMonthEntries(currentYear, currentMonth);
+    const yearEntries  = getYearEntries(currentYear);
+    const allEntries   = Object.entries(pnlData).map(([k,v]) => ({ date: k, ...v }));
+
+    const monthPnL = sumPnL(monthEntries);
+    const yearPnL  = sumPnL(yearEntries);
+    const allPnL   = sumPnL(allEntries);
+
+    const cards = [
+      { label: '本月', value: monthPnL },
+      { label: `${currentYear}年`, value: yearPnL },
+      { label: '全部', value: allPnL },
+    ];
+
+    document.getElementById('statsCards').innerHTML = cards.map(c => {
+      const cls = c.value > 0 ? 'text-emerald-400' : c.value < 0 ? 'text-red-400' : 'text-zinc-400';
+      return `
+        <div class="bg-zinc-900/80 rounded-xl p-3 sm:p-4 border border-zinc-800/50 text-center">
+          <div class="text-xs text-zinc-500 mb-1">${c.label}</div>
+          <div class="text-base sm:text-lg font-mono font-semibold ${cls}">${fmtPnL(c.value)}</div>
+        </div>`;
+    }).join('');
+  }
+
+  function getWeekTotal(satYear, satMonth, satDay) {
+    const sat = new Date(satYear, satMonth, satDay);
+    let total = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(sat);
+      d.setDate(sat.getDate() - 6 + i); // Sun through Sat
+      const ds = fmtDate(d.getFullYear(), d.getMonth(), d.getDate());
+      const e = getEntry(ds);
+      if (e && e.pnl !== 0) total += e.pnl;
+    }
+    return total;
+  }
+
+  function renderCalendar() {
+    const daysInMonth  = getDaysInMonth(currentYear, currentMonth);
+    const startOffset  = getFirstDayOffset(currentYear, currentMonth);
+    const totalCells   = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+    const todayStr     = fmtDate(now.getFullYear(), now.getMonth(), now.getDate());
+
+    let html = '';
+    for (let i = 0; i < totalCells; i++) {
+      const dayNum = i - startOffset + 1;
+
+      if (dayNum < 1 || dayNum > daysInMonth) {
+        html += '<div class="aspect-square rounded-lg"></div>';
+        continue;
+      }
+
+      const dateStr = fmtDate(currentYear, currentMonth, dayNum);
+      const dow     = new Date(currentYear, currentMonth, dayNum).getDay();
+      const isWknd  = isWeekend(currentYear, currentMonth, dayNum);
+      const isTdy   = dateStr === todayStr;
+      const entry   = getEntry(dateStr);
+
+      let cellClass = 'cal-cell aspect-square rounded-lg flex flex-col items-center justify-center cursor-pointer select-none relative ';
+      let extraHtml = '';
+
+      if (isWknd) {
+        cellClass += 'bg-zinc-900/30 text-zinc-600 weekend-cell';
+      } else if (entry && entry.pnl > 0) {
+        cellClass += 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500/20';
+      } else if (entry && entry.pnl < 0) {
+        cellClass += 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border-2 border-red-500/20';
+      } else {
+        cellClass += 'bg-zinc-800/30 hover:bg-zinc-700/40 text-zinc-400 border-2 border-zinc-800/50';
+      }
+
+      if (isTdy && !isWknd) {
+        cellClass += ' today-ring';
+      }
+
+      let pnlHtml = '';
+      if (entry && entry.pnl !== 0) {
+        pnlHtml = `<span class="text-[15px] sm:text-[17px] font-mono font-medium mt-0.5 truncate max-w-full px-1">${fmtPnL(entry.pnl, true)}</span>`;
+      }
+
+      // Week total on Saturdays that fall in the current month
+      if (dow === 6) {
+        const weekTotal = getWeekTotal(currentYear, currentMonth, dayNum);
+        if (weekTotal !== 0) {
+          const wColor = weekTotal > 0 ? 'text-emerald-400/80' : 'text-red-400/80';
+          let wLabel = fmtPnL(weekTotal, true);
+          extraHtml = `<span class="text-[15px] sm:text-[17px] font-mono font-medium truncate max-w-full px-1 ${wColor}">Σ ${wLabel}</span>`;
+        }
+      }
+
+      const dotHtml = isTdy ? '<span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 sm:w-2 sm:h-2 bg-amber-400 rounded-full shadow-[0_0_4px_rgba(251,191,36,0.5)]"></span>' : '';
+
+      const onclick = isWknd ? '' : `onclick="openModal('${dateStr}')"`;
+      html += `
+        <div class="${cellClass}" ${onclick} title="${dateStr}${entry ? ' · ' + fmtPnL(entry.pnl) : ''}${entry?.note ? ' · ' + entry.note : ''}">
+          ${dotHtml}
+          <span class="text-xs sm:text-sm font-medium text-zinc-400">${dayNum}</span>
+          ${pnlHtml}
+          ${extraHtml}
+        </div>`;
+    }
+
+    document.getElementById('calendarGrid').innerHTML = html;
+  }
+
+  function renderAdvancedStats() {
+    const monthEntries = getMonthEntries(currentYear, currentMonth);
+    const stats = calcTradeStats(monthEntries);
+
+    const hasData = stats.tradingDays > 0;
+    const items = [
+      { label: '交易天数', value: stats.tradingDays, unit: '天', color: 'text-zinc-200' },
+      { label: '胜率',     value: hasData ? stats.winRate.toFixed(1) : '--', unit: '%',  color: hasData ? (stats.winRate >= 50 ? 'text-emerald-400' : 'text-red-400') : 'text-zinc-500' },
+      { label: '平均盈利', value: stats.wins ? fmtPnL(stats.avgWin, true) : '--', unit: '',   color: stats.wins ? 'text-emerald-400' : 'text-zinc-500' },
+      { label: '平均亏损', value: stats.losses ? fmtPnL(stats.avgLoss, true) : '--', unit: '',   color: stats.losses ? 'text-red-400' : 'text-zinc-500' },
+      { label: '盈亏比',   value: hasData ? (stats.profitFactor === Infinity ? '∞' : stats.profitFactor.toFixed(2)) : '--', unit: '', color: hasData ? (stats.profitFactor >= 1 ? 'text-emerald-400' : 'text-red-400') : 'text-zinc-500' },
+      { label: '最佳日',   value: stats.best !== null ? fmtPnL(stats.best, true) : '--', unit: '', color: stats.best !== null ? 'text-emerald-400' : 'text-zinc-500' },
+      { label: '最差日',   value: stats.worst !== null ? fmtPnL(stats.worst, true) : '--', unit: '', color: stats.worst !== null ? 'text-red-400' : 'text-zinc-500' },
+      { label: '连续',     value: hasData ? `${stats.streak}${stats.streakType}` : '--', unit: '', color: hasData ? (stats.streakType === 'W' ? 'text-emerald-400' : 'text-red-400') : 'text-zinc-500' },
+    ];
+
+    document.getElementById('advancedStats').innerHTML = items.map(i => `
+      <div class="bg-zinc-800/50 rounded-xl p-3 border border-zinc-800/50">
+        <div class="text-[10px] sm:text-xs text-zinc-500 mb-0.5">${i.label}</div>
+        <div class="text-sm sm:text-base font-mono font-semibold ${i.color}">${i.value}<span class="text-xs text-zinc-500 ml-0.5">${i.unit}</span></div>
+      </div>
+    `).join('');
+  }
+
+  // ---- Chart ----
+  function drawChart() {
+    const canvas = document.getElementById('pnlChart');
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const W = rect.width * dpr;
+    const H = 160 * dpr;
+    canvas.width = W;
+    canvas.height = H;
+    canvas.style.width = rect.width + 'px';
+    canvas.style.height = '160px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+
+    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+    const values = [];
+    let maxAbs = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const entry = getEntry(fmtDate(currentYear, currentMonth, d));
+      const v = entry ? entry.pnl : 0;
+      values.push(v);
+      if (Math.abs(v) > maxAbs) maxAbs = Math.abs(v);
+    }
+    if (maxAbs === 0) maxAbs = 1;
+
+    const pad = { top: 16*dpr, right: 8*dpr, bottom: 16*dpr, left: 8*dpr };
+    const chartW = W - pad.left - pad.right;
+    const chartH = H - pad.top - pad.bottom;
+    const midY = pad.top + chartH / 2;
+    const barW = Math.max(2*dpr, (chartW / daysInMonth) * 0.7);
+    const gap = chartW / daysInMonth;
+
+    // Zero line
+    ctx.strokeStyle = 'rgba(113,113,122,0.3)';
+    ctx.lineWidth = 1 * dpr;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, midY);
+    ctx.lineTo(pad.left + chartW, midY);
+    ctx.stroke();
+
+    // Bars
+    for (let i = 0; i < values.length; i++) {
+      const v = values[i];
+      if (v === 0) continue;
+      const x = pad.left + gap * i + (gap - barW) / 2;
+      const barH = (Math.abs(v) / maxAbs) * (chartH / 2 - 4*dpr);
+      const y = v > 0 ? midY - barH : midY;
+      const color = v > 0 ? 'rgba(52,211,153,0.85)' : 'rgba(248,113,113,0.85)';
+
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.roundRect(x, y, barW, Math.max(barH, 2*dpr), [2*dpr, 2*dpr, 2*dpr, 2*dpr]);
+      ctx.fill();
+    }
+
+    // Max value label
+    ctx.fillStyle = 'rgba(161,161,170,0.6)';
+    ctx.font = `${10*dpr}px system-ui`;
+    ctx.textAlign = 'right';
+    ctx.fillText('$' + (maxAbs >= 1000 ? (maxAbs/1000).toFixed(2)+'k' : maxAbs.toFixed(2)), W - pad.right, pad.top + 12*dpr);
+    ctx.fillText('-$' + (maxAbs >= 1000 ? (maxAbs/1000).toFixed(2)+'k' : maxAbs.toFixed(2)), W - pad.right, H - pad.bottom + 4*dpr);
+  }
+
+  // ---- Modal ----
+  function openModal(dateStr) {
+    const { y, m, d } = parseDate(dateStr);
+    const entry = getEntry(dateStr);
+    const dayName = DAY_NAMES[new Date(y, m, d).getDay()];
+
+    document.getElementById('modalDate').textContent = `${y}年${MONTH_NAMES[m]}${d}日 ${dayName}`;
+    document.getElementById('modalPnl').value = entry ? entry.pnl.toFixed(2) : '';
+    document.getElementById('modalNote').value = entry ? entry.note : '';
+    document.getElementById('modalDelete').style.display = entry ? '' : 'none';
+    document.getElementById('modal').style.display = 'flex';
+
+    // Re-trigger animation
+    const card = document.querySelector('.modal-card');
+    card.style.animation = 'none';
+    card.offsetHeight; // force reflow
+    card.style.animation = 'scaleIn 0.2s ease-out';
+
+    setTimeout(() => document.getElementById('modalPnl').focus(), 100);
+  }
+
+  function closeModal() {
+    document.getElementById('modal').style.display = 'none';
+  }
+
+  function saveModalEntry() {
+    const dateStr = parseModalDate();
+    const pnlStr = document.getElementById('modalPnl').value.trim();
+    const note   = document.getElementById('modalNote').value;
+
+    if (pnlStr === '' || isNaN(parseFloat(pnlStr))) {
+      // Empty or invalid: delete if exists
+      if (getEntry(dateStr)) {
+        deleteEntry(dateStr);
+      }
+    } else {
+      setEntry(dateStr, parseFloat(pnlStr), note);
+    }
+
+    closeModal();
+    renderAll();
+  }
+
+  function deleteModalEntry() {
+    const dateStr = parseModalDate();
+    deleteEntry(dateStr);
+    closeModal();
+    renderAll();
+    showToast('已删除');
+  }
+
+  function parseModalDate() {
+    const text = document.getElementById('modalDate').textContent;
+    const match = text.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+    return fmtDate(parseInt(match[1]), parseInt(match[2])-1, parseInt(match[3]));
+  }
+
+  // ---- Import / Export ----
+  function exportData() {
+    const blob = new Blob([JSON.stringify(pnlData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pnl-calendar-backup-${fmtDate(currentYear, currentMonth, 1)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('导出成功');
+  }
+
+  function importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const imported = JSON.parse(e.target.result);
+        if (typeof imported !== 'object' || Array.isArray(imported)) throw new Error('Invalid format');
+        // Validate structure
+        for (const [key, val] of Object.entries(imported)) {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) throw new Error(`Invalid date key: ${key}`);
+          if (typeof val.pnl !== 'number') throw new Error(`Invalid pnl for ${key}`);
+        }
+        const count = Object.keys(imported).length;
+        pnlData = imported;
+        saveData();
+        renderAll();
+        showToast(`已导入 ${count} 条记录`);
+      } catch (err) {
+        showToast('导入失败：文件格式不正确', 'error');
+        console.error(err);
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = ''; // reset file input
+  }
+
+  // ---- Toast ----
+  let toastTimer;
+  function showToast(msg, type) {
+    const el = document.getElementById('toast');
+    const bg = type === 'error' ? 'bg-red-600' : 'bg-zinc-700';
+    el.innerHTML = `<div class="toast-enter ${bg} text-zinc-100 text-sm px-4 py-2 rounded-xl shadow-lg border border-zinc-600/50 whitespace-nowrap">${msg}</div>`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.innerHTML = ''; }, 2200);
+  }
+
+  // ---- Navigation ----
+  function goToPrevMonth() {
+    if (currentMonth === 0) { currentMonth = 11; currentYear--; }
+    else { currentMonth--; }
+    renderAll();
+  }
+
+  function goToNextMonth() {
+    if (currentMonth === 11) { currentMonth = 0; currentYear++; }
+    else { currentMonth++; }
+    renderAll();
+  }
+
+  function goToToday() {
+    currentYear  = now.getFullYear();
+    currentMonth = now.getMonth();
+    renderAll();
+  }
+
+  // ---- Keyboard ----
+  document.addEventListener('keydown', function(e) {
+    const modal = document.getElementById('modal');
+    if (modal.style.display === 'flex') {
+      if (e.key === 'Escape') { closeModal(); }
+      if (e.key === 'Enter' && document.activeElement?.tagName !== 'TEXTAREA') { saveModalEntry(); }
+    }
+    // Arrow key navigation
+    if (modal.style.display !== 'flex') {
+      if (e.key === 'ArrowLeft')  { goToPrevMonth(); }
+      if (e.key === 'ArrowRight') { goToNextMonth(); }
+    }
+  });
+
+  // ---- Resize handler for chart ----
+  let resizeDebounce;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeDebounce);
+    resizeDebounce = setTimeout(drawChart, 150);
+  });
+
+  // ---- Init ----
+  function init() {
+    loadData();
+    renderAll();
+  }
+
+  init();
+  </script>
+</body>
+</html>
