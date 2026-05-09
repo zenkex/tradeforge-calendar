@@ -14,6 +14,10 @@
 - **键盘操作** — `←` `→` 切换月份，`Esc` 关闭弹窗，`Enter` 保存
 - **响应式设计** — 桌面优先，移动端友好
 
+## 截图
+
+![P&L Calendar 界面截图](screenshots/demo.png)
+
 ## 技术栈
 
 - HTML + CSS + JavaScript（ES6+）
