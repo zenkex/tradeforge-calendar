@@ -110,13 +110,14 @@
     <!-- Calendar -->
     <div class="bg-zinc-900/80 rounded-2xl p-3 sm:p-5 shadow-xl shadow-black/20 border border-zinc-800/50 mb-6">
       <!-- Day-of-week headers -->
-      <div class="grid grid-cols-7 mb-2 text-center text-xs sm:text-sm font-medium text-zinc-500">
+      <div class="grid grid-cols-8 mb-2 text-center text-xs sm:text-sm font-medium text-zinc-500">
         <span class="text-zinc-600">日</span>
         <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span>
         <span class="text-zinc-600">六</span>
+        <span class="text-zinc-500">每周盈亏</span>
       </div>
-      <!-- Day cells -->
-      <div id="calendarGrid" class="grid grid-cols-7 gap-1.5 sm:gap-2"></div>
+      <!-- Day cells + weekly P&L -->
+      <div id="calendarGrid" class="grid grid-cols-8 gap-1.5 sm:gap-2"></div>
     </div>
 
     <!-- Advanced Stats -->
@@ -127,9 +128,10 @@
 
     <!-- Chart -->
     <div class="bg-zinc-900/80 rounded-2xl p-4 sm:p-5 shadow-xl shadow-black/20 border border-zinc-800/50">
-      <h3 class="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-3">本月每日盈亏</h3>
-      <div class="relative w-full" style="height:160px">
-        <canvas id="pnlChart" class="w-full h-full"></canvas>
+      <h3 class="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-3">本月资金曲线（累计盈亏）</h3>
+      <div class="relative w-full" style="height:240px">
+        <canvas id="pnlChart"></canvas>
+        <div id="chartTooltip" class="absolute pointer-events-none hidden bg-zinc-800/95 text-zinc-100 text-xs font-mono px-2.5 py-1.5 rounded-lg border border-zinc-600/50 shadow-xl whitespace-nowrap z-10" style="transform:translate(-50%,-110%)"></div>
       </div>
     </div>
 
@@ -341,19 +343,6 @@
     }).join('');
   }
 
-  function getWeekTotal(satYear, satMonth, satDay) {
-    const sat = new Date(satYear, satMonth, satDay);
-    let total = 0;
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(sat);
-      d.setDate(sat.getDate() - 6 + i); // Sun through Sat
-      const ds = fmtDate(d.getFullYear(), d.getMonth(), d.getDate());
-      const e = getEntry(ds);
-      if (e && e.pnl !== 0) total += e.pnl;
-    }
-    return total;
-  }
-
   function renderCalendar() {
     const daysInMonth  = getDaysInMonth(currentYear, currentMonth);
     const startOffset  = getFirstDayOffset(currentYear, currentMonth);
@@ -366,57 +355,75 @@
 
       if (dayNum < 1 || dayNum > daysInMonth) {
         html += '<div class="aspect-square rounded-lg"></div>';
-        continue;
-      }
-
-      const dateStr = fmtDate(currentYear, currentMonth, dayNum);
-      const dow     = new Date(currentYear, currentMonth, dayNum).getDay();
-      const isWknd  = isWeekend(currentYear, currentMonth, dayNum);
-      const isTdy   = dateStr === todayStr;
-      const entry   = getEntry(dateStr);
-
-      let cellClass = 'cal-cell aspect-square rounded-lg flex flex-col items-center justify-center cursor-pointer select-none relative ';
-      let extraHtml = '';
-
-      if (isWknd) {
-        cellClass += 'bg-zinc-900/30 text-zinc-600 weekend-cell';
-      } else if (entry && entry.pnl > 0) {
-        cellClass += 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500/20';
-      } else if (entry && entry.pnl < 0) {
-        cellClass += 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border-2 border-red-500/20';
       } else {
-        cellClass += 'bg-zinc-800/30 hover:bg-zinc-700/40 text-zinc-400 border-2 border-zinc-800/50';
-      }
+        const dateStr = fmtDate(currentYear, currentMonth, dayNum);
+        const isWknd  = isWeekend(currentYear, currentMonth, dayNum);
+        const isTdy   = dateStr === todayStr;
+        const entry   = getEntry(dateStr);
 
-      if (isTdy && !isWknd) {
-        cellClass += ' today-ring';
-      }
+        let cellClass = 'cal-cell aspect-square rounded-lg flex flex-col items-center justify-center cursor-pointer select-none relative ';
 
-      let pnlHtml = '';
-      if (entry && entry.pnl !== 0) {
-        pnlHtml = `<span class="text-[15px] sm:text-[17px] font-mono font-medium mt-0.5 truncate max-w-full px-1">${fmtPnL(entry.pnl, true)}</span>`;
-      }
-
-      // Week total on Saturdays that fall in the current month
-      if (dow === 6) {
-        const weekTotal = getWeekTotal(currentYear, currentMonth, dayNum);
-        if (weekTotal !== 0) {
-          const wColor = weekTotal > 0 ? 'text-emerald-400/80' : 'text-red-400/80';
-          let wLabel = fmtPnL(weekTotal, true);
-          extraHtml = `<span class="text-[15px] sm:text-[17px] font-mono font-medium truncate max-w-full px-1 ${wColor}">Σ ${wLabel}</span>`;
+        if (isWknd) {
+          cellClass += 'bg-zinc-900/30 text-zinc-600 weekend-cell';
+        } else if (entry && entry.pnl > 0) {
+          cellClass += 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500/20';
+        } else if (entry && entry.pnl < 0) {
+          cellClass += 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border-2 border-red-500/20';
+        } else {
+          cellClass += 'bg-zinc-800/30 hover:bg-zinc-700/40 text-zinc-400 border-2 border-zinc-800/50';
         }
+
+        if (isTdy && !isWknd) {
+          cellClass += ' today-ring';
+        }
+
+        let pnlHtml = '';
+        if (entry && entry.pnl !== 0) {
+          pnlHtml = `<span class="text-[15px] sm:text-[17px] font-mono font-medium mt-0.5 truncate max-w-full px-1">${fmtPnL(entry.pnl, true)}</span>`;
+        }
+
+        const dotHtml = isTdy ? '<span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 sm:w-2 sm:h-2 bg-amber-400 rounded-full shadow-[0_0_4px_rgba(251,191,36,0.5)]"></span>' : '';
+
+        const onclick = isWknd ? '' : `onclick="openModal('${dateStr}')"`;
+        html += `
+          <div class="${cellClass}" ${onclick} title="${dateStr}${entry ? ' · ' + fmtPnL(entry.pnl) : ''}${entry?.note ? ' · ' + entry.note : ''}">
+            ${dotHtml}
+            <span class="text-xs sm:text-sm font-medium text-zinc-400">${dayNum}</span>
+            ${pnlHtml}
+          </div>`;
       }
 
-      const dotHtml = isTdy ? '<span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 sm:w-2 sm:h-2 bg-amber-400 rounded-full shadow-[0_0_4px_rgba(251,191,36,0.5)]"></span>' : '';
+      // End of week row: add weekly P&L summary (current-month days only)
+      if ((i + 1) % 7 === 0) {
+        const rowStart = i - 6;
+        let weekPnL = 0;
+        let weekHasPnL = false;
+        for (let c = 0; c < 7; c++) {
+          const d = (rowStart + c) - startOffset + 1;
+          if (d >= 1 && d <= daysInMonth) {
+            const e = getEntry(fmtDate(currentYear, currentMonth, d));
+            if (e && e.pnl !== 0) { weekPnL += e.pnl; weekHasPnL = true; }
+          }
+        }
 
-      const onclick = isWknd ? '' : `onclick="openModal('${dateStr}')"`;
-      html += `
-        <div class="${cellClass}" ${onclick} title="${dateStr}${entry ? ' · ' + fmtPnL(entry.pnl) : ''}${entry?.note ? ' · ' + entry.note : ''}">
-          ${dotHtml}
-          <span class="text-xs sm:text-sm font-medium text-zinc-400">${dayNum}</span>
-          ${pnlHtml}
-          ${extraHtml}
+        let sumClass = 'flex flex-col items-center justify-center rounded-lg ';
+        let sumText  = '';
+        if (weekHasPnL && weekPnL > 0) {
+          sumClass += 'bg-emerald-500/5 border-2 border-emerald-500/15 text-emerald-400';
+          sumText = fmtPnL(weekPnL, true);
+        } else if (weekHasPnL && weekPnL < 0) {
+          sumClass += 'bg-red-500/5 border-2 border-red-500/15 text-red-400';
+          sumText = fmtPnL(weekPnL, true);
+        } else {
+          sumClass += 'bg-zinc-800/10 border-2 border-zinc-800/30 text-zinc-600';
+          sumText = weekHasPnL ? '$0.00' : '';
+        }
+
+        html += `<div class="${sumClass}">
+          <span class="text-[9px] text-zinc-600 mb-0.5">W${Math.floor(i / 7) + 1}</span>
+          <span class="text-[15px] sm:text-[17px] font-mono font-medium">${sumText}</span>
         </div>`;
+      }
     }
 
     document.getElementById('calendarGrid').innerHTML = html;
@@ -446,68 +453,220 @@
     `).join('');
   }
 
-  // ---- Chart ----
+  // ---- Chart (Canvas) ----
   function drawChart() {
-    const canvas = document.getElementById('pnlChart');
-    const rect = canvas.parentElement.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    const W = rect.width * dpr;
-    const H = 160 * dpr;
-    canvas.width = W;
+    const canvas   = document.getElementById('pnlChart');
+    const container = canvas.parentElement;
+    const tooltip  = document.getElementById('chartTooltip');
+    const dpr      = window.devicePixelRatio || 1;
+    const W        = container.clientWidth * dpr;
+    const H        = 240 * dpr;
+    canvas.width  = W;
     canvas.height = H;
-    canvas.style.width = rect.width + 'px';
-    canvas.style.height = '160px';
+    canvas.style.width  = container.clientWidth + 'px';
+    canvas.style.height = '240px';
 
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, W, H);
 
+    // ---- Data ----
     const daysInMonth = getDaysInMonth(currentYear, currentMonth);
-    const values = [];
-    let maxAbs = 0;
+    const points = [];   // { day, value }
+    let running = 0, maxAbs = 0;
     for (let d = 1; d <= daysInMonth; d++) {
-      const entry = getEntry(fmtDate(currentYear, currentMonth, d));
-      const v = entry ? entry.pnl : 0;
-      values.push(v);
+      const e = getEntry(fmtDate(currentYear, currentMonth, d));
+      running += e ? e.pnl : 0;
+      const v = Math.round(running * 100) / 100;
+      points.push({ day: d, value: v });
       if (Math.abs(v) > maxAbs) maxAbs = Math.abs(v);
     }
     if (maxAbs === 0) maxAbs = 1;
+    // Prepend virtual origin so the first segment goes from 0 → first real point
+    points.unshift({ day: 1, value: 0, _virtual: true });
 
-    const pad = { top: 16*dpr, right: 8*dpr, bottom: 16*dpr, left: 8*dpr };
-    const chartW = W - pad.left - pad.right;
-    const chartH = H - pad.top - pad.bottom;
-    const midY = pad.top + chartH / 2;
-    const barW = Math.max(2*dpr, (chartW / daysInMonth) * 0.7);
-    const gap = chartW / daysInMonth;
+    // ---- Layout ----
+    const PAD = { top: 16*dpr, right: 14*dpr, bottom: 28*dpr, left: 6*dpr };
+    const plotW = W - PAD.left - PAD.right;
+    const plotH = H - PAD.top - PAD.bottom;
+    const yRange = maxAbs * 1.2 || 10;
+    const xS = (day) => PAD.left + ((day - 1) / Math.max(daysInMonth - 1, 1)) * plotW;
+    const yS = (val) => PAD.top + plotH / 2 - (val / yRange) * (plotH / 2);
+    const y0  = yS(0);
 
+    // ---- Grid ----
+    ctx.strokeStyle = 'rgba(113,113,122,0.15)';
+    ctx.lineWidth   = 1 * dpr;
+    const gridLines = 5;
+    for (let i = 0; i <= gridLines; i++) {
+      const y = PAD.top + (plotH / gridLines) * i;
+      ctx.beginPath();
+      ctx.moveTo(PAD.left, y);
+      ctx.lineTo(W - PAD.right, y);
+      ctx.stroke();
+    }
     // Zero line
-    ctx.strokeStyle = 'rgba(113,113,122,0.3)';
-    ctx.lineWidth = 1 * dpr;
+    ctx.strokeStyle = 'rgba(161,161,170,0.50)';
+    ctx.lineWidth   = 1.5 * dpr;
     ctx.beginPath();
-    ctx.moveTo(pad.left, midY);
-    ctx.lineTo(pad.left + chartW, midY);
+    ctx.moveTo(PAD.left, y0);
+    ctx.lineTo(W - PAD.right, y0);
     ctx.stroke();
 
-    // Bars
-    for (let i = 0; i < values.length; i++) {
-      const v = values[i];
-      if (v === 0) continue;
-      const x = pad.left + gap * i + (gap - barW) / 2;
-      const barH = (Math.abs(v) / maxAbs) * (chartH / 2 - 4*dpr);
-      const y = v > 0 ? midY - barH : midY;
-      const color = v > 0 ? 'rgba(52,211,153,0.85)' : 'rgba(248,113,113,0.85)';
+    // Y-axis labels
+    ctx.fillStyle = 'rgba(161,161,170,0.6)';
+    ctx.font      = `${10*dpr}px system-ui`;
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= gridLines; i++) {
+      const val = yRange * (1 - i / gridLines) - yRange / 2;
+      const y = PAD.top + (plotH / gridLines) * i;
+      const abv = Math.abs(val);
+      const lbl = (val >= 0 ? '$' : '-$') + (abv >= 1000 ? (abv/1000).toFixed(1)+'k' : abv.toFixed(0));
+      if (Math.abs(val) < yRange * 0.02) continue; // skip near-zero label (handled by zero line)
+      ctx.fillText(lbl, W - PAD.right, y + 3.5*dpr);
+    }
 
+    // X-axis labels (every ~7 days)
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(161,161,170,0.5)';
+    ctx.font      = `${9*dpr}px system-ui`;
+    const step = Math.max(1, Math.round(daysInMonth / 10));
+    for (let d = 1; d <= daysInMonth; d += step) {
+      ctx.fillText(d, xS(d), H - PAD.bottom + 14*dpr);
+    }
+
+    // ---- Fill areas ----
+    function fillSegment(x0, y0v, x1, y1v, color, yBase) {
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.roundRect(x, y, barW, Math.max(barH, 2*dpr), [2*dpr, 2*dpr, 2*dpr, 2*dpr]);
+      ctx.moveTo(x0, yS(y0v));
+      ctx.lineTo(x1, yS(y1v));
+      ctx.lineTo(x1, yBase);
+      ctx.lineTo(x0, yBase);
+      ctx.closePath();
       ctx.fill();
     }
 
-    // Max value label
-    ctx.fillStyle = 'rgba(161,161,170,0.6)';
-    ctx.font = `${10*dpr}px system-ui`;
-    ctx.textAlign = 'right';
-    ctx.fillText('$' + (maxAbs >= 1000 ? (maxAbs/1000).toFixed(2)+'k' : maxAbs.toFixed(2)), W - pad.right, pad.top + 12*dpr);
-    ctx.fillText('-$' + (maxAbs >= 1000 ? (maxAbs/1000).toFixed(2)+'k' : maxAbs.toFixed(2)), W - pad.right, H - pad.bottom + 4*dpr);
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i], p1 = points[i + 1];
+      const x0_ = xS(p0.day), x1_ = xS(p1.day);
+      const v0 = p0.value, v1 = p1.value;
+
+      if (v0 >= 0 && v1 >= 0) {
+        fillSegment(x0_, v0, x1_, v1, 'rgba(34,197,94,0.10)', y0);
+      } else if (v0 <= 0 && v1 <= 0) {
+        fillSegment(x0_, v0, x1_, v1, 'rgba(239,68,68,0.10)', y0);
+      } else {
+        const t = v0 / (v0 - v1);
+        const cx = x0_ + t * (x1_ - x0_);
+        if (v0 > 0) { // pos → neg
+          fillSegment(x0_, v0, cx, 0, 'rgba(34,197,94,0.10)', y0);
+          fillSegment(cx, 0, x1_, v1, 'rgba(239,68,68,0.10)', y0);
+        } else {       // neg → pos
+          fillSegment(x0_, v0, cx, 0, 'rgba(239,68,68,0.10)', y0);
+          fillSegment(cx, 0, x1_, v1, 'rgba(34,197,94,0.10)', y0);
+        }
+      }
+    }
+
+    // ---- Line segments ----
+    ctx.lineWidth = 2 * dpr;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i], p1 = points[i + 1];
+      const x0_ = xS(p0.day), x1_ = xS(p1.day);
+      const v0 = p0.value, v1 = p1.value;
+      const y0v = yS(v0), y1v = yS(v1);
+
+      if (v0 >= 0 && v1 >= 0) {
+        ctx.strokeStyle = (v0 === 0 && v1 === 0) ? '#71717a' : '#22c55e';
+        ctx.beginPath();
+        ctx.moveTo(x0_, y0v);
+        ctx.lineTo(x1_, y1v);
+        ctx.stroke();
+      } else if (v0 <= 0 && v1 <= 0) {
+        ctx.strokeStyle = (v0 === 0 && v1 === 0) ? '#71717a' : '#ef4444';
+        ctx.beginPath();
+        ctx.moveTo(x0_, y0v);
+        ctx.lineTo(x1_, y1v);
+        ctx.stroke();
+      } else {
+        const t = v0 / (v0 - v1);
+        const cx = x0_ + t * (x1_ - x0_);
+        // Part 1
+        ctx.strokeStyle = v0 >= 0 ? '#22c55e' : '#ef4444';
+        ctx.beginPath();
+        ctx.moveTo(x0_, y0v);
+        ctx.lineTo(cx, y0);
+        ctx.stroke();
+        // Part 2
+        ctx.strokeStyle = v1 >= 0 ? '#22c55e' : '#ef4444';
+        ctx.beginPath();
+        ctx.moveTo(cx, y0);
+        ctx.lineTo(x1_, y1v);
+        ctx.stroke();
+      }
+    }
+
+    // ---- Dots ----
+    for (const p of points) {
+      if (p._virtual) continue;
+      ctx.fillStyle = p.value > 0 ? '#22c55e' : p.value < 0 ? '#ef4444' : '#71717a';
+      ctx.beginPath();
+      ctx.arc(xS(p.day), yS(p.value), 3.5*dpr, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    // ---- Hover tooltip ----
+    canvas.onmousemove = function(e) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      // Find nearest point
+      let best = null, bestDist = Infinity;
+      for (const p of points) {
+        if (p._virtual) continue;
+        const dx = xS(p.day) / dpr - mx;
+        const dy = yS(p.value) / dpr - my;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < bestDist && dist < 30) { best = p; bestDist = dist; }
+      }
+
+      if (best) {
+        const tx = xS(best.day) / dpr;
+        const ty = yS(best.value) / dpr;
+        tooltip.style.left = tx + 'px';
+        tooltip.style.top  = ty + 'px';
+        tooltip.innerHTML = `${currentYear}年${MONTH_NAMES[currentMonth]}${best.day}日<br><span style="color:${best.value >= 0 ? '#4ade80' : '#f87171'}">${fmtPnL(best.value)}</span>`;
+        tooltip.classList.remove('hidden');
+
+        // Draw vertical guide
+        drawChart(); // redraw without guide, then overlay
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth   = 1*dpr;
+        ctx.setLineDash([4*dpr, 4*dpr]);
+        ctx.beginPath();
+        ctx.moveTo(xS(best.day), PAD.top);
+        ctx.lineTo(xS(best.day), H - PAD.bottom);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Highlight dot
+        ctx.fillStyle = best.value > 0 ? '#4ade80' : best.value < 0 ? '#f87171' : '#a1a1aa';
+        ctx.beginPath();
+        ctx.arc(xS(best.day), yS(best.value), 5*dpr, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#18181b';
+        ctx.beginPath();
+        ctx.arc(xS(best.day), yS(best.value), 2.5*dpr, 0, Math.PI*2);
+        ctx.fill();
+      } else {
+        tooltip.classList.add('hidden');
+      }
+    };
+
+    canvas.onmouseleave = function() {
+      tooltip.classList.add('hidden');
+    };
   }
 
   // ---- Modal ----
@@ -649,11 +808,11 @@
     }
   });
 
-  // ---- Resize handler for chart ----
+  // ---- Resize ----
   let resizeDebounce;
   window.addEventListener('resize', () => {
     clearTimeout(resizeDebounce);
-    resizeDebounce = setTimeout(drawChart, 150);
+    resizeDebounce = setTimeout(drawChart, 200);
   });
 
   // ---- Init ----
