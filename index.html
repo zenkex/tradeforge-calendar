@@ -162,6 +162,23 @@
     <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
       <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50">P&L Calendar</h1>
       <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div class="relative">
+          <button id="accountBtn" onclick="toggleAccountMenu()"
+            class="flex items-center justify-between gap-2 px-3 py-1.5 text-xs sm:text-sm rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/50 transition-colors w-40">
+            <span id="accountBtnLabel" class="truncate">默认账户</span>
+            <svg class="w-3.5 h-3.5 text-zinc-500 transition-transform flex-shrink-0" id="accountArrow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div id="accountMenu" class="absolute top-full left-0 mt-1 w-52 bg-zinc-800 rounded-xl shadow-2xl border border-zinc-700/50 py-1 z-40 hidden overflow-hidden"
+               onclick="event.stopPropagation()">
+            <div id="accountMenuItems"></div>
+            <div class="border-t border-zinc-700/50 mt-1 pt-1">
+              <button onclick="closeAccountMenu(); openNewAccountModal()"
+                class="w-full text-left px-3.5 py-2 text-xs text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 transition-colors flex items-center gap-2">
+                <span class="text-base leading-none">＋</span> 新建账户
+              </button>
+            </div>
+          </div>
+        </div>
         <button onclick="exportData()" title="导出 JSON 备份"
           class="px-3 py-1.5 text-xs sm:text-sm rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors border border-zinc-700/50">
           <span class="hidden sm:inline">导出</span> JSON
@@ -207,7 +224,7 @@
     </div>
 
     <!-- Calendar -->
-    <div class="bg-zinc-900/80 rounded-2xl p-3 sm:p-5 shadow-xl shadow-black/20 border border-zinc-800/50 mb-6">
+    <div class="bg-zinc-900/80 rounded-xl p-3 sm:p-5 shadow-xl shadow-black/20 border border-zinc-800/50 mb-6">
       <!-- Day-of-week headers -->
       <div class="grid grid-cols-8 mb-2 text-center text-xs sm:text-sm font-medium text-zinc-500">
         <span class="text-zinc-600">日</span>
@@ -220,13 +237,13 @@
     </div>
 
     <!-- Advanced Stats -->
-    <div class="bg-zinc-900/80 rounded-2xl p-4 sm:p-5 shadow-xl shadow-black/20 border border-zinc-800/50 mb-6">
+    <div class="bg-zinc-900/80 rounded-xl p-4 sm:p-5 shadow-xl shadow-black/20 border border-zinc-800/50 mb-6">
       <h3 class="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-3">高级统计</h3>
       <div id="advancedStats" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
     </div>
 
     <!-- Chart -->
-    <div class="bg-zinc-900/80 rounded-2xl p-4 sm:p-5 shadow-xl shadow-black/20 border border-zinc-800/50">
+    <div class="bg-zinc-900/80 rounded-xl p-4 sm:p-5 shadow-xl shadow-black/20 border border-zinc-800/50">
       <h3 class="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-3">本月资金曲线（累计盈亏）</h3>
       <div class="relative w-full" style="height:240px">
         <canvas id="pnlChart"></canvas>
@@ -239,7 +256,7 @@
   <!-- ===== Modal ===== -->
   <div id="modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" onclick="closeModal()">
     <div class="absolute inset-0 bg-black/70 modal-enter"></div>
-    <div class="modal-card relative bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-700/50 w-full max-w-sm p-5 sm:p-6"
+    <div class="modal-card relative bg-zinc-900 rounded-xl shadow-2xl border border-zinc-700/50 w-full max-w-sm p-5 sm:p-6"
          onclick="event.stopPropagation()">
       <!-- Close button -->
       <button onclick="closeModal()" class="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 transition-colors">
@@ -253,7 +270,8 @@
           <label class="block text-xs font-medium text-zinc-500 mb-1.5 uppercase tracking-wide">盈亏金额</label>
           <div class="relative">
             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-lg font-mono">$</span>
-            <input id="modalPnl" type="number" step="0.01" placeholder="0.00"
+            <input id="modalPnl" type="text" inputmode="decimal" placeholder="0.00"
+              oninput="filterPnlInput(this)"
               class="w-full pl-9 pr-4 py-3 bg-zinc-800 rounded-xl border border-zinc-700/50 text-zinc-100 text-xl font-mono font-medium placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-all">
           </div>
         </div>
@@ -286,7 +304,7 @@
   <!-- ===== Confirm Clear Modal ===== -->
   <div id="confirmClearModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" onclick="closeConfirmClear()">
     <div class="absolute inset-0 bg-black/70 modal-enter"></div>
-    <div class="modal-card relative bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-700/50 w-full max-w-sm p-5 sm:p-6"
+    <div class="modal-card relative bg-zinc-900 rounded-xl shadow-2xl border border-zinc-700/50 w-full max-w-sm p-5 sm:p-6"
          onclick="event.stopPropagation()">
       <button onclick="closeConfirmClear()" class="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 transition-colors">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -306,12 +324,78 @@
     </div>
   </div>
 
+  <!-- ===== New Account Modal ===== -->
+  <div id="newAccountModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" onclick="closeNewAccountModal()">
+    <div class="absolute inset-0 bg-black/70 modal-enter"></div>
+    <div class="modal-card relative bg-zinc-900 rounded-xl shadow-2xl border border-zinc-700/50 w-full max-w-sm p-5 sm:p-6"
+         onclick="event.stopPropagation()">
+      <button onclick="closeNewAccountModal()" class="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      <h3 class="text-lg font-semibold text-zinc-100 mb-4">新建账户</h3>
+      <input id="newAccountName" type="text" placeholder="输入账户名..."
+        class="w-full px-4 py-2.5 bg-zinc-800 rounded-xl border border-zinc-700/50 text-zinc-200 text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-all mb-5"
+        onkeydown="if(event.key==='Enter') confirmNewAccount()">
+      <div class="flex justify-end gap-3">
+        <button onclick="closeNewAccountModal()"
+          class="px-5 py-2.5 text-sm font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-xl transition-colors">取消</button>
+        <button onclick="confirmNewAccount()"
+          class="px-5 py-2.5 text-sm font-semibold bg-zinc-100 text-zinc-900 hover:bg-white rounded-xl transition-colors">创建</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Delete Account Modal ===== -->
+  <div id="deleteAccountModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" onclick="closeDeleteAccountModal()">
+    <div class="absolute inset-0 bg-black/70 modal-enter"></div>
+    <div class="modal-card relative bg-zinc-900 rounded-xl shadow-2xl border border-zinc-700/50 w-full max-w-sm p-5 sm:p-6"
+         onclick="event.stopPropagation()">
+      <button onclick="closeDeleteAccountModal()" class="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      <h3 class="text-lg font-semibold text-zinc-100 mb-3">确认删除</h3>
+      <p id="deleteAccountMsg" class="text-sm text-zinc-400 leading-relaxed mb-6"></p>
+      <input type="hidden" id="deleteAccountTarget">
+      <div class="flex justify-end gap-3">
+        <button onclick="closeDeleteAccountModal()"
+          class="px-5 py-2.5 text-sm font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-xl transition-colors">取消</button>
+        <button onclick="confirmDeleteAccount()"
+          class="px-5 py-2.5 text-sm font-semibold bg-red-500 text-white hover:bg-red-600 rounded-xl transition-colors">确认删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Edit Account Modal ===== -->
+  <div id="editAccountModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" onclick="closeEditAccountModal()">
+    <div class="absolute inset-0 bg-black/70 modal-enter"></div>
+    <div class="modal-card relative bg-zinc-900 rounded-xl shadow-2xl border border-zinc-700/50 w-full max-w-sm p-5 sm:p-6"
+         onclick="event.stopPropagation()">
+      <button onclick="closeEditAccountModal()" class="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      <h3 class="text-lg font-semibold text-zinc-100 mb-4">修改账户名称</h3>
+      <p id="editAccountError" class="text-xs text-red-400 mb-3 hidden"></p>
+      <input type="hidden" id="editAccountOldName">
+      <input id="editAccountName" type="text" placeholder="输入新账户名..."
+        maxlength="24"
+        class="w-full px-4 py-2.5 bg-zinc-800 rounded-xl border border-zinc-700/50 text-zinc-200 text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-all mb-5"
+        onkeydown="if(event.key==='Enter') confirmEditAccount()">
+      <div class="flex justify-end gap-3">
+        <button onclick="closeEditAccountModal()"
+          class="px-5 py-2.5 text-sm font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-xl transition-colors">取消</button>
+        <button onclick="confirmEditAccount()"
+          class="px-5 py-2.5 text-sm font-semibold bg-zinc-100 text-zinc-900 hover:bg-white rounded-xl transition-colors">确认</button>
+      </div>
+    </div>
+  </div>
+
   <script>
   // ============================================================
   //  P&L Calendar - 本地交易盈亏日历
   // ============================================================
 
-  const STORAGE_KEY = 'pnlCalendar';
+  const CALENDARS_KEY = 'pnlCalendars';
+  const LAST_ACCOUNT_KEY = 'pnlLastAccount';
   const MONTH_NAMES = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
   const DAY_NAMES = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
 
@@ -319,6 +403,8 @@
   const now = new Date();
   let currentYear  = now.getFullYear();
   let currentMonth = now.getMonth(); // 0-indexed
+  let currentAccount = null;
+  let allAccounts = {};
   let pnlData = {};
 
   // ---- Utilities ----
@@ -361,12 +447,47 @@
 
   // ---- Data ----
   function loadData() {
-    try { pnlData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
-    catch { pnlData = {}; }
+    try { allAccounts = JSON.parse(localStorage.getItem(CALENDARS_KEY)) || {}; }
+    catch { allAccounts = {}; }
+    const names = Object.keys(allAccounts);
+
+    // First ever use: try migrating old single-account data, else create default
+    if (names.length === 0) {
+      const old = localStorage.getItem('pnlCalendar');
+      if (old) {
+        try { allAccounts['默认账户'] = JSON.parse(old); localStorage.removeItem('pnlCalendar'); }
+        catch { allAccounts['默认账户'] = {}; }
+      } else {
+        allAccounts['默认账户'] = {};
+      }
+      // Re-read names after migration/creation
+    }
+
+    // Restore last active account, or pick the first one
+    const saved = localStorage.getItem(LAST_ACCOUNT_KEY);
+    const updatedNames = Object.keys(allAccounts);
+    if (saved && allAccounts[saved]) {
+      currentAccount = saved;
+    } else {
+      currentAccount = updatedNames[0] || '默认账户';
+    }
+    pnlData = allAccounts[currentAccount];
   }
 
   function saveData() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(pnlData));
+    allAccounts[currentAccount] = pnlData;
+    localStorage.setItem(CALENDARS_KEY, JSON.stringify(allAccounts));
+    localStorage.setItem(LAST_ACCOUNT_KEY, currentAccount);
+  }
+
+  function switchAccount(name) {
+    allAccounts[currentAccount] = pnlData;
+    currentAccount = name;
+    if (!allAccounts[name]) allAccounts[name] = {};
+    pnlData = allAccounts[name];
+    localStorage.setItem(LAST_ACCOUNT_KEY, currentAccount);
+    refreshAccountBtn();
+    renderAll();
   }
 
   function getEntry(dateStr) {
@@ -381,6 +502,156 @@
   function deleteEntry(dateStr) {
     delete pnlData[dateStr];
     saveData();
+  }
+
+  // ---- Accounts ----
+  function refreshAccountBtn() {
+    const label = document.getElementById('accountBtnLabel');
+    if (label) label.textContent = currentAccount;
+    // Rebuild dropdown menu items
+    const menu = document.getElementById('accountMenuItems');
+    if (!menu) return;
+    const names = Object.keys(allAccounts).sort();
+    menu.innerHTML = names.map(n => `
+      <div class="flex items-center justify-between px-3.5 py-2 hover:bg-zinc-700 transition-colors cursor-pointer ${n === currentAccount ? 'bg-zinc-700/50' : ''}">
+        <span class="text-xs sm:text-sm text-zinc-200 truncate flex-1" onclick="closeAccountMenu(); switchAccount('${n.replace(/'/g, "\\'")}')">${n}</span>
+        <button onclick="event.stopPropagation(); closeAccountMenu(); openEditAccountModal('${n.replace(/'/g, "\\'")}')" title="编辑账户名"
+          class="ml-1.5 text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0 text-sm leading-none">✏️</button>
+        <button onclick="event.stopPropagation(); closeAccountMenu(); openDeleteAccountModal('${n.replace(/'/g, "\\'")}')" title="删除账户"
+          class="ml-1.5 text-zinc-500 hover:text-red-400 transition-colors flex-shrink-0 text-sm leading-none">🗑️</button>
+      </div>
+    `).join('');
+  }
+
+  function toggleAccountMenu() {
+    const menu = document.getElementById('accountMenu');
+    const arrow = document.getElementById('accountArrow');
+    const isOpen = !menu.classList.contains('hidden');
+    if (isOpen) { closeAccountMenu(); return; }
+    refreshAccountBtn();
+    menu.classList.remove('hidden');
+    arrow.style.transform = 'rotate(180deg)';
+  }
+
+  function closeAccountMenu() {
+    const menu = document.getElementById('accountMenu');
+    const arrow = document.getElementById('accountArrow');
+    menu.classList.add('hidden');
+    arrow.style.transform = 'rotate(0deg)';
+  }
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(e) {
+    const menu = document.getElementById('accountMenu');
+    const btn  = document.getElementById('accountBtn');
+    if (menu && btn && !menu.classList.contains('hidden')) {
+      if (!btn.contains(e.target) && !menu.contains(e.target)) closeAccountMenu();
+    }
+  });
+
+  function openNewAccountModal() {
+    document.getElementById('newAccountName').value = '';
+    const m = document.getElementById('newAccountModal');
+    m.style.display = 'flex';
+    const card = m.querySelector('.modal-card');
+    card.style.animation = 'none'; card.offsetHeight;
+    card.style.animation = 'scaleIn 0.2s ease-out';
+    setTimeout(() => document.getElementById('newAccountName').focus(), 100);
+  }
+
+  function closeNewAccountModal() {
+    document.getElementById('newAccountModal').style.display = 'none';
+  }
+
+  function confirmNewAccount() {
+    const name = document.getElementById('newAccountName').value.trim();
+    if (!name) return;
+    if (allAccounts[name]) { showToast('账户名已存在', 'error'); return; }
+    allAccounts[currentAccount] = pnlData;
+    allAccounts[name] = {};
+    currentAccount = name;
+    pnlData = allAccounts[name];
+    saveData();
+    closeNewAccountModal();
+    refreshAccountBtn();
+    renderAll();
+    showToast('账户已创建');
+  }
+
+  function openDeleteAccountModal(accountName) {
+    const names = Object.keys(allAccounts);
+    if (names.length <= 1) { showToast('至少保留一个账户', 'error'); return; }
+    document.getElementById('deleteAccountMsg').textContent =
+      `确定要删除账户「${accountName}」吗？此操作不可撤销，该账户下的所有盈亏数据将被清除。`;
+    document.getElementById('deleteAccountTarget').value = accountName;
+    const m = document.getElementById('deleteAccountModal');
+    m.style.display = 'flex';
+    const card = m.querySelector('.modal-card');
+    card.style.animation = 'none'; card.offsetHeight;
+    card.style.animation = 'scaleIn 0.2s ease-out';
+  }
+
+  function closeDeleteAccountModal() {
+    document.getElementById('deleteAccountModal').style.display = 'none';
+  }
+
+  function confirmDeleteAccount() {
+    const target = document.getElementById('deleteAccountTarget').value;
+    const names = Object.keys(allAccounts);
+    if (names.length <= 1) { closeDeleteAccountModal(); return; }
+    delete allAccounts[target];
+    if (currentAccount === target) {
+      currentAccount = names.find(n => n !== target) || '默认账户';
+    }
+    pnlData = allAccounts[currentAccount];
+    saveData();
+    closeDeleteAccountModal();
+    refreshAccountBtn();
+    renderAll();
+    showToast(`已删除「${target}」`);
+  }
+
+  function openEditAccountModal(accountName) {
+    document.getElementById('editAccountOldName').value = accountName;
+    document.getElementById('editAccountName').value = accountName;
+    document.getElementById('editAccountError').classList.add('hidden');
+    const m = document.getElementById('editAccountModal');
+    m.style.display = 'flex';
+    const card = m.querySelector('.modal-card');
+    card.style.animation = 'none'; card.offsetHeight;
+    card.style.animation = 'scaleIn 0.2s ease-out';
+    setTimeout(() => {
+      const inp = document.getElementById('editAccountName');
+      inp.focus();
+      const len = inp.value.length;
+      inp.setSelectionRange(len, len);
+    }, 100);
+  }
+
+  function closeEditAccountModal() {
+    document.getElementById('editAccountModal').style.display = 'none';
+  }
+
+  function confirmEditAccount() {
+    const oldName = document.getElementById('editAccountOldName').value;
+    const newName = document.getElementById('editAccountName').value.trim();
+    const errEl   = document.getElementById('editAccountError');
+
+    if (!newName) { errEl.textContent = '账户名不能为空'; errEl.classList.remove('hidden'); return; }
+    if (newName.length > 24) { errEl.textContent = '账户名不能超过 24 个字符'; errEl.classList.remove('hidden'); return; }
+    if (newName !== oldName && allAccounts[newName]) { errEl.textContent = '账户名已存在'; errEl.classList.remove('hidden'); return; }
+
+    if (newName !== oldName) {
+      allAccounts[newName] = allAccounts[oldName];
+      delete allAccounts[oldName];
+      if (currentAccount === oldName) currentAccount = newName;
+    }
+    pnlData = allAccounts[currentAccount];
+    saveData();
+    closeEditAccountModal();
+    refreshAccountBtn();
+    renderAll();
+    showToast('账户名已更新');
   }
 
   // ---- Statistics ----
@@ -840,7 +1111,26 @@
     card.offsetHeight; // force reflow
     card.style.animation = 'scaleIn 0.2s ease-out';
 
-    setTimeout(() => document.getElementById('modalPnl').focus(), 100);
+    setTimeout(() => {
+      const inp = document.getElementById('modalPnl');
+      inp.focus();
+      const len = inp.value.length;
+      inp.setSelectionRange(len, len);
+    }, 100);
+  }
+
+  function filterPnlInput(el) {
+    let v = el.value;
+    // Remove any character that isn't digit, minus, or dot
+    v = v.replace(/[^0-9.\-]/g, '');
+    // Keep minus only at the very beginning
+    if (v.indexOf('-') > 0) v = v.replace(/-/g, '');
+    // Keep only the first dot
+    const firstDot = v.indexOf('.');
+    if (firstDot !== -1) {
+      v = v.substring(0, firstDot + 1) + v.substring(firstDot + 1).replace(/\./g, '');
+    }
+    el.value = v;
   }
 
   function closeModal() {
@@ -885,7 +1175,7 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `pnl-calendar-backup-${fmtDate(currentYear, currentMonth, 1)}.json`;
+    a.download = `pnl-${currentAccount}-${fmtDate(currentYear, currentMonth, 1)}.json`;
     a.click();
     URL.revokeObjectURL(url);
     showToast('导出成功');
@@ -899,13 +1189,12 @@
       try {
         const imported = JSON.parse(e.target.result);
         if (typeof imported !== 'object' || Array.isArray(imported)) throw new Error('Invalid format');
-        // Validate structure
         for (const [key, val] of Object.entries(imported)) {
           if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) throw new Error(`Invalid date key: ${key}`);
           if (typeof val.pnl !== 'number') throw new Error(`Invalid pnl for ${key}`);
         }
         const count = Object.keys(imported).length;
-        pnlData = imported;
+        Object.assign(pnlData, imported);
         saveData();
         renderAll();
         showToast(`已导入 ${count} 条记录`);
@@ -915,7 +1204,7 @@
       }
     };
     reader.readAsText(file);
-    event.target.value = ''; // reset file input
+    event.target.value = '';
   }
 
   // ---- Toast ----
@@ -978,15 +1267,30 @@
   document.addEventListener('keydown', function(e) {
     const modal = document.getElementById('modal');
     const confirmModal = document.getElementById('confirmClearModal');
-    if (confirmModal && confirmModal.style.display === 'flex') {
+    const newAccModal = document.getElementById('newAccountModal');
+    const delAccModal = document.getElementById('deleteAccountModal');
+    const editAccModal = document.getElementById('editAccountModal');
+    const anyModalOpen = (m) => m && m.style.display === 'flex';
+
+    if (anyModalOpen(delAccModal)) {
+      if (e.key === 'Escape') { closeDeleteAccountModal(); return; }
+    }
+    if (anyModalOpen(editAccModal)) {
+      if (e.key === 'Escape') { closeEditAccountModal(); return; }
+      if (e.key === 'Enter') { confirmEditAccount(); return; }
+    }
+    if (anyModalOpen(newAccModal)) {
+      if (e.key === 'Escape') { closeNewAccountModal(); return; }
+      if (e.key === 'Enter') { confirmNewAccount(); return; }
+    }
+    if (anyModalOpen(confirmModal)) {
       if (e.key === 'Escape') { closeConfirmClear(); return; }
     }
-    if (modal.style.display === 'flex') {
+    if (anyModalOpen(modal)) {
       if (e.key === 'Escape') { closeModal(); }
       if (e.key === 'Enter' && document.activeElement?.tagName !== 'TEXTAREA') { saveModalEntry(); }
     }
-    // Arrow key navigation
-    if (modal.style.display !== 'flex' && (!confirmModal || confirmModal.style.display !== 'flex')) {
+    if (!anyModalOpen(modal) && !anyModalOpen(confirmModal) && !anyModalOpen(newAccModal) && !anyModalOpen(delAccModal) && !anyModalOpen(editAccModal)) {
       if (e.key === 'ArrowLeft')  { goToPrevMonth(); }
       if (e.key === 'ArrowRight') { goToNextMonth(); }
     }
@@ -1032,6 +1336,7 @@
   function init() {
     initTheme();
     loadData();
+    refreshAccountBtn();
     renderAll();
   }
 
