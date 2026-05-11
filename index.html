@@ -590,15 +590,15 @@
       if (Math.abs(v) > maxAbs) maxAbs = Math.abs(v);
     }
     if (maxAbs === 0) maxAbs = 1;
-    // Prepend virtual origin so the first segment goes from 0 → first real point
-    points.unshift({ day: 1, value: 0, _virtual: true });
+    // Prepend virtual origin so the curve starts from 0 at the left edge
+    points.unshift({ day: 0, value: 0, _virtual: true });
 
     // ---- Layout ----
     const PAD = { top: 16*dpr, right: 14*dpr, bottom: 28*dpr, left: 6*dpr };
     const plotW = W - PAD.left - PAD.right;
     const plotH = H - PAD.top - PAD.bottom;
     const yRange = maxAbs * 1.2 || 10;
-    const xS = (day) => PAD.left + ((day - 1) / Math.max(daysInMonth - 1, 1)) * plotW;
+    const xS = (day) => PAD.left + (day / daysInMonth) * plotW;
     const yS = (val) => PAD.top + plotH / 2 - (val / yRange) * (plotH / 2);
     const y0  = yS(0);
 
