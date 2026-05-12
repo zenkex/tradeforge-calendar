@@ -148,12 +148,16 @@
     .light-theme .today-ring { box-shadow: 0 0 0 2px rgba(100,116,139,0.6), 0 0 0 6px rgba(100,116,139,0.15) !important; }
 
     .light-theme #chartTooltip { background-color: rgba(255,255,255,0.95) !important; color: #1e293b !important; border-color: #cbd5e1 !important; }
+    .light-theme #statTooltip { background-color: #ffffff !important; color: #1e293b !important; border-color: #cbd5e1 !important; }
   </style>
 </head>
 <body class="bg-zinc-950 text-zinc-100 min-h-screen font-sans antialiased">
 
   <!-- ===== Toast Container ===== -->
   <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] pointer-events-none"></div>
+
+  <!-- ===== Stat Tooltip ===== -->
+  <div id="statTooltip" class="fixed z-[101] hidden opacity-0 transition-opacity duration-150 bg-zinc-800 text-zinc-200 text-xs rounded-lg shadow-xl border border-zinc-600/50 px-3 py-2 max-w-[240px] leading-relaxed pointer-events-none"></div>
 
   <!-- ===== Main Container ===== -->
   <div class="max-w-5xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
@@ -164,11 +168,11 @@
       <div class="flex flex-wrap items-center gap-2 sm:gap-3">
         <div class="relative">
           <button id="accountBtn" onclick="toggleAccountMenu()"
-            class="flex items-center justify-between gap-2 px-3 py-1.5 text-xs sm:text-sm rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/50 transition-colors w-40">
+            class="flex items-center justify-between gap-2 px-3 py-1.5 text-xs sm:text-sm rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/50 transition-colors w-64">
             <span id="accountBtnLabel" class="truncate">默认账户</span>
             <svg class="w-3.5 h-3.5 text-zinc-500 transition-transform flex-shrink-0" id="accountArrow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 9l6 6 6-6"/></svg>
           </button>
-          <div id="accountMenu" class="absolute top-full left-0 mt-1 w-52 bg-zinc-800 rounded-xl shadow-2xl border border-zinc-700/50 py-1 z-40 hidden overflow-hidden"
+          <div id="accountMenu" class="absolute top-full left-0 mt-1 w-full bg-zinc-800 rounded-xl shadow-2xl border border-zinc-700/50 py-1 z-40 hidden overflow-hidden"
                onclick="event.stopPropagation()">
             <div id="accountMenuItems"></div>
             <div class="border-t border-zinc-700/50 mt-1 pt-1">
@@ -219,7 +223,7 @@
       </div>
       <button onclick="clearCurrentMonth()"
         class="px-3 py-1.5 text-xs sm:text-sm rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border-2 border-red-500/20 transition-colors">
-        清空本月
+        清空本月数据
       </button>
     </div>
 
@@ -377,7 +381,7 @@
       <p id="editAccountError" class="text-xs text-red-400 mb-3 hidden"></p>
       <input type="hidden" id="editAccountOldName">
       <input id="editAccountName" type="text" placeholder="输入新账户名..."
-        maxlength="24"
+        maxlength="30"
         class="w-full px-4 py-2.5 bg-zinc-800 rounded-xl border border-zinc-700/50 text-zinc-200 text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-all mb-5"
         onkeydown="if(event.key==='Enter') confirmEditAccount()">
       <div class="flex justify-end gap-3">
@@ -638,7 +642,7 @@
     const errEl   = document.getElementById('editAccountError');
 
     if (!newName) { errEl.textContent = '账户名不能为空'; errEl.classList.remove('hidden'); return; }
-    if (newName.length > 24) { errEl.textContent = '账户名不能超过 24 个字符'; errEl.classList.remove('hidden'); return; }
+    if (newName.length > 30) { errEl.textContent = '账户名不能超过 30 个字符'; errEl.classList.remove('hidden'); return; }
     if (newName !== oldName && allAccounts[newName]) { errEl.textContent = '账户名已存在'; errEl.classList.remove('hidden'); return; }
 
     if (newName !== oldName) {
@@ -673,7 +677,7 @@
     return entries.reduce((s, e) => s + e.pnl, 0);
   }
 
-  function calcTradeStats(entries) {
+  function calcTradeStats(entries, year, month) {
     const nonZero = entries.filter(e => e.pnl !== 0);
     const wins  = nonZero.filter(e => e.pnl > 0);
     const losses = nonZero.filter(e => e.pnl < 0);
@@ -681,25 +685,32 @@
     const tradingDays = nonZero.length;
     const winRate = (wins.length + losses.length) > 0
       ? (wins.length / (wins.length + losses.length) * 100) : 0;
-    const avgWin  = wins.length  ? sumPnL(wins) / wins.length : 0;
-    const avgLoss = losses.length ? sumPnL(losses) / losses.length : 0;
     const totalWins = sumPnL(wins);
     const totalLosses = Math.abs(sumPnL(losses));
+    const avgWinAmt = wins.length ? totalWins / wins.length : 0;
+    const avgLossAmt = losses.length ? totalLosses / losses.length : 0;
+    const winLossRatio = losses.length > 0 ? avgWinAmt / avgLossAmt : (wins.length > 0 ? Infinity : 0);
     const profitFactor = totalLosses !== 0 ? totalWins / totalLosses : (totalWins > 0 ? Infinity : 0);
     const best  = nonZero.length ? Math.max(...nonZero.map(e => e.pnl)) : null;
     const worst = nonZero.length ? Math.min(...nonZero.map(e => e.pnl)) : null;
 
-    // Streak
-    const sorted = nonZero.sort((a, b) => b.date.localeCompare(a.date)); // newest first
-    let streak = 0, streakType = null;
-    for (const e of sorted) {
-      const t = e.pnl > 0 ? 'W' : 'L';
-      if (streakType === null) { streakType = t; streak = 1; }
-      else if (t === streakType) { streak++; }
-      else break;
+    // Max drawdown from cumulative P&L curve (all days, including zeros)
+    const daysInMonth = getDaysInMonth(year, month);
+    let peak = 0, running = 0, maxDD = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const e = getEntry(fmtDate(year, month, d));
+      running += e ? e.pnl : 0;
+      if (running > peak) peak = running;
+      const dd = peak - running;
+      if (dd > maxDD) maxDD = dd;
     }
+    const recoveryFactor = totalPnL < 0 ? 0 : (maxDD > 0 ? totalPnL / maxDD : (totalPnL > 0 ? Infinity : 0));
 
-    return { tradingDays, winRate, avgWin, avgLoss, profitFactor, best, worst, totalPnL, streak, streakType, wins: wins.length, losses: losses.length };
+    // Expectancy: (winRate * avgWin) - (lossRate * avgLoss)
+    const lossRate = (wins.length + losses.length) > 0 ? 100 - winRate : 0;
+    const expectancy = tradingDays > 0 ? ((winRate / 100) * avgWinAmt) - ((lossRate / 100) * avgLossAmt) : 0;
+
+    return { tradingDays, winRate, avgWin: avgWinAmt, avgLoss: avgLossAmt, winLossRatio, profitFactor, best, worst, totalPnL, recoveryFactor, maxDD, expectancy, wins: wins.length, losses: losses.length };
   }
 
   // ---- Rendering ----
@@ -824,23 +835,30 @@
 
   function renderAdvancedStats() {
     const monthEntries = getMonthEntries(currentYear, currentMonth);
-    const stats = calcTradeStats(monthEntries);
+    const stats = calcTradeStats(monthEntries, currentYear, currentMonth);
 
     const hasData = stats.tradingDays > 0;
+    const tip = (text) => `<span class="stat-tip inline-flex items-center justify-center ml-1 w-3.5 h-3.5 rounded-full border border-zinc-600 text-zinc-500 hover:text-zinc-300 hover:border-zinc-400 text-[9px] font-sans leading-none font-medium transition-colors" data-tip="${text.replace(/"/g, '&quot;')}" onmouseenter="showStatTip(event, this)" onmouseleave="hideStatTip()">?</span>`;
+
     const items = [
-      { label: '交易天数', value: stats.tradingDays, unit: '天', color: 'text-zinc-200' },
-      { label: '胜率',     value: hasData ? stats.winRate.toFixed(1) : '--', unit: '%',  color: hasData ? (stats.winRate >= 50 ? 'text-emerald-400' : 'text-red-400') : 'text-zinc-500' },
-      { label: '平均盈利', value: stats.wins ? fmtPnL(stats.avgWin, true) : '--', unit: '',   color: stats.wins ? 'text-emerald-400' : 'text-zinc-500' },
-      { label: '平均亏损', value: stats.losses ? fmtPnL(stats.avgLoss, true) : '--', unit: '',   color: stats.losses ? 'text-red-400' : 'text-zinc-500' },
-      { label: '盈亏比',   value: hasData ? (stats.profitFactor === Infinity ? '∞' : stats.profitFactor.toFixed(2)) : '--', unit: '', color: hasData ? (stats.profitFactor >= 1 ? 'text-emerald-400' : 'text-red-400') : 'text-zinc-500' },
-      { label: '最佳日',   value: stats.best !== null ? fmtPnL(stats.best, true) : '--', unit: '', color: stats.best !== null ? 'text-emerald-400' : 'text-zinc-500' },
-      { label: '最差日',   value: stats.worst !== null ? fmtPnL(stats.worst, true) : '--', unit: '', color: stats.worst !== null ? 'text-red-400' : 'text-zinc-500' },
-      { label: '连续',     value: hasData ? `${stats.streak}${stats.streakType}` : '--', unit: '', color: hasData ? (stats.streakType === 'W' ? 'text-emerald-400' : 'text-red-400') : 'text-zinc-500' },
+      { label: '交易天数', value: stats.tradingDays, unit: '天', color: 'text-zinc-200', tip: '' },
+      { label: '本月胜率', value: hasData ? stats.winRate.toFixed(1) : '--', unit: '%', color: hasData ? (stats.winRate >= 50 ? 'text-emerald-400' : 'text-red-400') : 'text-zinc-500', tip: '' },
+      { label: `盈亏比${tip('盈亏比 = 平均盈利 / 平均亏损（绝对值）。亏损天数为 0 时显示 ∞。')}`,
+        value: hasData ? (stats.winLossRatio === Infinity ? '∞' : stats.winLossRatio.toFixed(2)) : '--', unit: '', color: hasData ? (stats.winLossRatio >= 1 ? 'text-emerald-400' : 'text-red-400') : 'text-zinc-500', rawLabel: '盈亏比' },
+      { label: `盈利因子${tip('盈利因子 = 总盈利 / 总亏损（绝对值）。总亏损为 0 时显示 ∞。')}`,
+        value: hasData ? (stats.profitFactor === Infinity ? '∞' : stats.profitFactor.toFixed(2)) : '--', unit: '', color: hasData ? (stats.profitFactor >= 1 ? 'text-emerald-400' : 'text-red-400') : 'text-zinc-500', rawLabel: '盈利因子' },
+      { label: `恢复因子${tip('恢复因子 = 当月总净收益 / 最大回撤（绝对值）。净收益为负时显示 0。')}`,
+        value: hasData ? (stats.recoveryFactor === Infinity ? '∞' : stats.recoveryFactor.toFixed(2)) : '--', unit: '', color: hasData ? (stats.recoveryFactor >= 1 ? 'text-emerald-400' : 'text-red-400') : 'text-zinc-500', rawLabel: '恢复因子' },
+      { label: `每日期望${tip('每日期望 =（平均盈利 × 盈利概率）−（平均亏损 × 亏损概率）。平均每天的预期盈亏，正值代表长期正向收益。')}`,
+        value: hasData ? fmtPnL(stats.expectancy, true) : '--', unit: '', color: hasData ? (stats.expectancy > 0 ? 'text-emerald-400' : stats.expectancy < 0 ? 'text-red-400' : 'text-zinc-400') : 'text-zinc-500', rawLabel: '每日期望' },
+      { label: '最大回撤', value: hasData ? fmtPnL(-Math.abs(stats.maxDD), true) : '--', unit: '', color: hasData ? 'text-red-400' : 'text-zinc-500', tip: '' },
+      { label: '平均盈/亏',
+        value: hasData ? `${fmtPnL(stats.avgWin, true)} / ${fmtPnL(-stats.avgLoss, true)}` : '--', unit: '', color: hasData ? 'text-emerald-400' : 'text-zinc-500', tip: '' },
     ];
 
     document.getElementById('advancedStats').innerHTML = items.map(i => `
       <div class="bg-zinc-800/50 rounded-xl p-3 border border-zinc-800/50">
-        <div class="text-[10px] sm:text-xs text-zinc-500 mb-0.5">${i.label}</div>
+        <div class="text-[10px] sm:text-xs text-zinc-500 mb-0.5 flex items-center">${i.label}</div>
         <div class="text-sm sm:text-base font-mono font-semibold ${i.color}">${i.value}<span class="text-xs text-zinc-500 ml-0.5">${i.unit}</span></div>
       </div>
     `).join('');
@@ -1208,6 +1226,33 @@
   }
 
   // ---- Toast ----
+  // ---- Stat Tooltip ----
+  let statTipTimer;
+
+  function showStatTip(e, el) {
+    const tooltip = document.getElementById('statTooltip');
+    const text = el.getAttribute('data-tip');
+    if (!text) return;
+    tooltip.textContent = text;
+    tooltip.classList.remove('hidden');
+    clearTimeout(statTipTimer);
+    statTipTimer = setTimeout(() => {
+      const r = tooltip.getBoundingClientRect();
+      const x = e.clientX + 12;
+      const y = e.clientY - 12;
+      tooltip.style.left = (x + r.width > window.innerWidth - 8 ? x - r.width - 24 : x) + 'px';
+      tooltip.style.top  = (y - r.height < 8 ? y + r.height + 24 : y - r.height) + 'px';
+      tooltip.style.opacity = '1';
+    }, 300);
+  }
+
+  function hideStatTip() {
+    clearTimeout(statTipTimer);
+    const tooltip = document.getElementById('statTooltip');
+    tooltip.style.opacity = '0';
+    tooltip.classList.add('hidden');
+  }
+
   let toastTimer;
   function showToast(msg, type) {
     const el = document.getElementById('toast');
