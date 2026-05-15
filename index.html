@@ -9,8 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-  <!-- Space Grotesk (English) + Noto Sans SC (Chinese) from Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Recursive variable font (English) + Noto Sans SC (Chinese) from Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Recursive:wght,CRSV,MONO@300..1000,1,0.2&display=swap" rel="stylesheet">
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -18,7 +18,7 @@
       theme: {
         extend: {
           fontFamily: {
-            sans: ['Space Grotesk', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Noto Sans SC', 'sans-serif'],
+            sans: ['Recursive', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Noto Sans SC', 'sans-serif'],
           },
           colors: {
             profit: '#A2E736',
@@ -45,6 +45,17 @@
     * { box-sizing: border-box; }
     html { -webkit-tap-highlight-color: transparent; }
 
+    /* Recursive variable font settings */
+    body {
+      font-optical-sizing: auto;
+      font-style: normal;
+      font-variation-settings:
+        "slnt" 0,
+        "CASL" 0,
+        "CRSV" 1,
+        "MONO" 0.2;
+    }
+
     /* Hide number input spinners */
     input[type="number"]::-webkit-inner-spin-button,
     input[type="number"]::-webkit-outer-spin-button {
@@ -70,9 +81,6 @@
 
     /* Weekend cells */
     .weekend-cell { cursor: default; }
-
-    /* Pulse ring for today */
-    .today-ring { box-shadow: 0 0 0 2px rgba(255,255,255,0.25), 0 0 0 6px rgba(255,255,255,0.06); }
 
     /* ---- Theme: CSS custom properties ---- */
     :root {
@@ -161,8 +169,6 @@
     .light-theme .focus\:ring-zinc-500:focus { --tw-ring-color: #64748b !important; }
 
     .light-theme .weekend-cell { background-color: #f1f5f9 !important; color: #94a3b8 !important; }
-    .light-theme .today-ring { box-shadow: 0 0 0 2px rgba(0,0,0,0.2), 0 0 0 6px rgba(0,0,0,0.06) !important; }
-
     .light-theme #chartTooltip { background-color: rgba(255,255,255,0.95) !important; color: #1e293b !important; border-color: #cbd5e1 !important; }
     .light-theme #statTooltip { background-color: #ffffff !important; color: #1e293b !important; border-color: #cbd5e1 !important; }
   </style>
@@ -226,7 +232,7 @@
     </header>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-3 gap-3 sm:gap-4 mb-6" id="statsCards"></div>
+    <div class="grid grid-cols-4 gap-3 sm:gap-4 mb-6" id="statsCards"></div>
 
     <!-- Month Navigation -->
     <div class="flex items-center justify-between mb-4">
@@ -419,6 +425,31 @@
     </div>
   </div>
 
+  <!-- ===== Set Profit Target Modal ===== -->
+  <div id="targetModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" onclick="closeTargetModal()">
+    <div class="absolute inset-0 bg-black/80 modal-enter"></div>
+    <div class="modal-card relative bg-zinc-900 rounded-xl shadow-2xl border border-zinc-700/50 w-full max-w-sm p-5 sm:p-6"
+         onclick="event.stopPropagation()">
+      <button onclick="closeTargetModal()" class="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      <h3 class="text-lg font-semibold text-zinc-100 mb-4">设置目标盈利</h3>
+      <div class="relative mb-5">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-lg font-sans">$</span>
+        <input id="targetAmountInput" type="text" inputmode="decimal" placeholder="0.00"
+          oninput="filterPnlInput(this)"
+          class="w-full pl-9 pr-4 py-3 bg-zinc-800 rounded-xl border border-zinc-700/50 text-zinc-100 text-xl font-sans font-medium placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-all"
+          onkeydown="if(event.key==='Enter') saveTarget()">
+      </div>
+      <div class="flex justify-end gap-3">
+        <button onclick="closeTargetModal()"
+          class="px-5 py-2.5 text-sm font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-xl transition-colors">取消</button>
+        <button onclick="saveTarget()"
+          class="px-5 py-2.5 text-sm font-semibold bg-zinc-100 text-zinc-900 hover:bg-white rounded-xl transition-colors">保存</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== Set Initial Balance Modal ===== -->
   <div id="balanceModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" onclick="closeBalanceModal()">
     <div class="absolute inset-0 bg-black/80 modal-enter"></div>
@@ -473,6 +504,7 @@
   const DAY_NAMES = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
   const INITIAL_BALANCE_KEY = '_initialBalance';
   const BALANCE_LOCKED_KEY = '_initialBalanceLocked';
+  const PROFIT_TARGET_KEY = '_profitTarget';
 
   // ---- State ----
   const now = new Date();
@@ -597,11 +629,44 @@
     saveData();
   }
 
+  function getProfitTarget() {
+    return pnlData[PROFIT_TARGET_KEY] || 0;
+  }
+
+  function setProfitTarget(value) {
+    pnlData[PROFIT_TARGET_KEY] = Math.round(value * 100) / 100;
+    saveData();
+  }
+
   function getCurrentBalance() {
     const allPnL = sumPnL(Object.entries(pnlData)
-      .filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY)
+      .filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY)
       .map(([, v]) => v));
     return getInitialBalance() + allPnL;
+  }
+
+  // ---- Profit Target ----
+  function openTargetModal() {
+    document.getElementById('targetAmountInput').value = getProfitTarget().toFixed(2);
+    document.getElementById('targetModal').style.display = 'flex';
+    setTimeout(() => {
+      const input = document.getElementById('targetAmountInput');
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    }, 100);
+  }
+
+  function closeTargetModal() {
+    document.getElementById('targetModal').style.display = 'none';
+  }
+
+  function saveTarget() {
+    const raw = document.getElementById('targetAmountInput').value;
+    const val = parseFloat(raw) || 0;
+    setProfitTarget(Math.abs(val));
+    closeTargetModal();
+    renderStatsCards();
+    showToast('目标盈利已更新');
   }
 
   // ---- Balance ----
@@ -631,7 +696,7 @@
 
   function openBalanceModal() {
     const totalPnL = sumPnL(Object.entries(pnlData)
-      .filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY)
+      .filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY)
       .map(([, v]) => v));
     document.getElementById('balanceTotalPnL').textContent = fmtPnL(totalPnL);
     document.getElementById('balanceTotalPnL').className = 'text-sm font-sans font-semibold ' +
@@ -652,7 +717,7 @@
 
   function updateBalancePreview() {
     const totalPnL = sumPnL(Object.entries(pnlData)
-      .filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY)
+      .filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY)
       .map(([, v]) => v));
     const raw = document.getElementById('balanceInitialInput').value;
     const initial = parseFloat(raw) || 0;
@@ -898,19 +963,29 @@
   function renderStatsCards() {
     const monthEntries = getMonthEntries(currentYear, currentMonth);
     const yearEntries  = getYearEntries(currentYear);
-    const allEntries   = Object.entries(pnlData).filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY).map(([k,v]) => ({ date: k, ...v }));
+    const allEntries   = Object.entries(pnlData).filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY).map(([k,v]) => ({ date: k, ...v }));
 
     const monthPnL = sumPnL(monthEntries);
     const yearPnL  = sumPnL(yearEntries);
     const allPnL   = sumPnL(allEntries);
 
+    const target = getProfitTarget();
     const cards = [
-      { label: '本月', value: monthPnL },
-      { label: `${currentYear}年`, value: yearPnL },
-      { label: '全部', value: allPnL },
+      { label: '本月', value: monthPnL, type: 'pnl' },
+      { label: `${currentYear}年`, value: yearPnL, type: 'pnl' },
+      { label: '全部', value: allPnL, type: 'pnl' },
+      { label: '目标', value: target, type: 'target' },
     ];
 
     document.getElementById('statsCards').innerHTML = cards.map(c => {
+      if (c.type === 'target') {
+        const has = c.value > 0;
+        return `
+          <div class="bg-zinc-900/80 rounded-xl p-3 sm:p-4 border border-zinc-800/50 text-center cursor-pointer hover:bg-zinc-800/60 transition-colors" onclick="openTargetModal()" title="点击设置目标盈利">
+            <div class="text-xs text-zinc-500 mb-1">${c.label}</div>
+            <div class="text-base sm:text-lg font-sans font-semibold ${has ? 'text-white' : 'text-zinc-500'}">${has ? fmtPnL(c.value) : '--'}</div>
+          </div>`;
+      }
       const cls = c.value > 0 ? 'text-profit' : c.value < 0 ? 'text-loss' : 'text-zinc-400';
       return `
         <div class="bg-zinc-900/80 rounded-xl p-3 sm:p-4 border border-zinc-800/50 text-center">
@@ -948,10 +1023,6 @@
           cellClass += 'bg-loss/10 hover:bg-loss/20 text-loss border-2 border-loss/20';
         } else {
           cellClass += 'bg-zinc-800/30 hover:bg-zinc-700/40 text-zinc-400 border-2 border-zinc-800/50';
-        }
-
-        if (isTdy && !isWknd) {
-          cellClass += ' today-ring';
         }
 
         let pnlHtml = '';
@@ -1025,14 +1096,15 @@
       { label: `每日期望${tip('每日期望 =（平均盈利 × 盈利概率）−（平均亏损 × 亏损概率）。平均每天的预期盈亏，正值代表长期正向收益。')}`,
         value: hasData ? fmtPnL(stats.expectancy, true) : '--', unit: '', color: hasData ? (stats.expectancy > 0 ? 'text-profit' : stats.expectancy < 0 ? 'text-loss' : 'text-zinc-400') : 'text-zinc-500', rawLabel: '每日期望' },
       { label: '最大回撤', value: hasData ? fmtPnL(-Math.abs(stats.maxDD), true) : '--', unit: '', color: hasData ? 'text-loss' : 'text-zinc-500', tip: '' },
-      { label: '平均盈/亏',
-        value: hasData ? `${fmtPnL(stats.avgWin, true)} / ${fmtPnL(-stats.avgLoss, true)}` : '--', unit: '', color: hasData ? 'text-profit' : 'text-zinc-500', tip: '' },
+      { label: '平均盈利/平均亏损',
+        value: '--', unit: '', color: 'text-zinc-500', tip: '',
+        html: hasData ? `<span class="text-profit">${fmtPnL(stats.avgWin, true)}</span><span class="text-zinc-500"> / </span><span class="text-loss">${fmtPnL(-stats.avgLoss, true)}</span>` : null },
     ];
 
     document.getElementById('advancedStats').innerHTML = items.map(i => `
       <div class="bg-zinc-800/50 rounded-xl p-3 border border-zinc-800/50">
         <div class="text-[10px] sm:text-xs text-zinc-500 mb-0.5 flex items-center">${i.label}</div>
-        <div class="text-sm sm:text-base font-sans font-semibold ${i.color}">${i.value}<span class="text-xs text-zinc-500 ml-0.5">${i.unit}</span></div>
+        <div class="text-sm sm:text-base font-sans font-semibold ${i.color}">${i.html ? i.html : i.value}<span class="text-xs text-zinc-500 ml-0.5">${i.unit}</span></div>
       </div>
     `).join('');
   }
@@ -1133,7 +1205,7 @@
 
     // Y-axis labels (left side)
     ctx.fillStyle = TC.label;
-    ctx.font      = `${10*dpr}px Space Grotesk, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif`;
+    ctx.font      = `${10*dpr}px Recursive, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif`;
     ctx.textAlign = 'right';
     for (let i = 0; i <= gridLines; i++) {
       const val = yRange * (1 - i / gridLines) - yRange / 2;
@@ -1147,7 +1219,7 @@
     // X-axis labels (every ~7 days, up to lastDataDay)
     ctx.textAlign = 'center';
     ctx.fillStyle = TC.label;
-    ctx.font      = `${9*dpr}px Space Grotesk, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif`;
+    ctx.font      = `${9*dpr}px Recursive, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif`;
     const step = Math.max(1, Math.round(lastDataDay / 10));
     for (let d = 1; d <= lastDataDay; d += step) {
       ctx.fillText(d, xS(d), H - PAD.bottom + 14*dpr);
@@ -1393,7 +1465,7 @@
   function exportData() {
     const exportData = {};
     for (const [k, v] of Object.entries(pnlData)) {
-      if (k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY) exportData[k] = v;
+      if (k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY) exportData[k] = v;
     }
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1522,6 +1594,7 @@
     const delAccModal = document.getElementById('deleteAccountModal');
     const editAccModal = document.getElementById('editAccountModal');
     const balanceModal = document.getElementById('balanceModal');
+    const targetModal = document.getElementById('targetModal');
     const anyModalOpen = (m) => m && m.style.display === 'flex';
 
     if (anyModalOpen(delAccModal)) {
@@ -1538,6 +1611,9 @@
     if (anyModalOpen(confirmModal)) {
       if (e.key === 'Escape') { closeConfirmClear(); return; }
     }
+    if (anyModalOpen(targetModal)) {
+      if (e.key === 'Escape') { closeTargetModal(); return; }
+    }
     if (anyModalOpen(balanceModal)) {
       if (e.key === 'Escape') { closeBalanceModal(); return; }
       if (e.key === 'Enter') { saveBalance(); return; }
@@ -1546,7 +1622,7 @@
       if (e.key === 'Escape') { closeModal(); }
       if (e.key === 'Enter' && document.activeElement?.tagName !== 'TEXTAREA') { saveModalEntry(); }
     }
-    if (!anyModalOpen(modal) && !anyModalOpen(confirmModal) && !anyModalOpen(newAccModal) && !anyModalOpen(delAccModal) && !anyModalOpen(editAccModal) && !anyModalOpen(balanceModal)) {
+    if (!anyModalOpen(modal) && !anyModalOpen(confirmModal) && !anyModalOpen(newAccModal) && !anyModalOpen(delAccModal) && !anyModalOpen(editAccModal) && !anyModalOpen(balanceModal) && !anyModalOpen(targetModal)) {
       if (e.key === 'ArrowLeft')  { goToPrevMonth(); }
       if (e.key === 'ArrowRight') { goToNextMonth(); }
     }
