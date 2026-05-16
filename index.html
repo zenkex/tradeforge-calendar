@@ -401,26 +401,52 @@
     </div>
   </div>
 
-  <!-- ===== Edit Account Modal ===== -->
-  <div id="editAccountModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" onclick="closeEditAccountModal()">
+  <!-- ===== Account Edit Modal (unified: rename + status + delete) ===== -->
+  <div id="accountEditModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" onclick="closeAccountEditModal()">
     <div class="absolute inset-0 bg-black/80 modal-enter"></div>
     <div class="modal-card relative bg-zinc-900 rounded-xl shadow-2xl border border-zinc-700/50 w-full max-w-sm p-5 sm:p-6"
          onclick="event.stopPropagation()">
-      <button onclick="closeEditAccountModal()" class="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 transition-colors">
+      <button onclick="closeAccountEditModal()" class="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 transition-colors">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
-      <h3 class="text-lg font-semibold text-zinc-100 mb-4">修改账户名称</h3>
-      <p id="editAccountError" class="text-xs text-loss mb-3 hidden"></p>
-      <input type="hidden" id="editAccountOldName">
-      <input id="editAccountName" type="text" placeholder="输入新账户名..."
+      <h3 id="accountEditTitle" class="text-lg font-semibold text-zinc-100 mb-4">编辑账户</h3>
+      <p id="accountEditError" class="text-xs text-loss mb-3 hidden"></p>
+      <input type="hidden" id="accountEditOldName">
+
+      <!-- Account name -->
+      <label class="block text-xs font-medium text-zinc-500 mb-1.5 uppercase tracking-wide">账户名称</label>
+      <input id="accountEditName" type="text" placeholder="输入账户名..."
         maxlength="30"
         class="w-full px-4 py-2.5 bg-zinc-800 rounded-xl border border-zinc-700/50 text-zinc-200 text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-all mb-5"
-        onkeydown="if(event.key==='Enter') confirmEditAccount()">
-      <div class="flex justify-end gap-3">
-        <button onclick="closeEditAccountModal()"
-          class="px-5 py-2.5 text-sm font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-xl transition-colors">取消</button>
-        <button onclick="confirmEditAccount()"
-          class="px-5 py-2.5 text-sm font-semibold bg-zinc-100 text-zinc-900 hover:bg-white rounded-xl transition-colors">确认</button>
+        onkeydown="if(event.key==='Enter') saveAccountEdit()">
+
+      <!-- Status toggle -->
+      <label class="block text-xs font-medium text-zinc-500 mb-2 uppercase tracking-wide">状态</label>
+      <div class="flex gap-3 mb-5">
+        <button id="statusActiveBtn" onclick="selectAccountStatus('Active')"
+          class="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all">
+          <span class="w-2 h-2 rounded-full" style="background-color:#A2E736;box-shadow:0 0 5px #A2E736"></span>
+          Active
+        </button>
+        <button id="statusBreachedBtn" onclick="selectAccountStatus('Breached')"
+          class="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all">
+          <span class="w-2 h-2 rounded-full" style="background-color:#F543A5;box-shadow:0 0 5px #F543A5"></span>
+          Breached
+        </button>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex items-center justify-between gap-3">
+        <button onclick="deleteAccountFromEdit()"
+          class="px-4 py-2.5 text-sm font-medium text-loss hover:text-loss/80 hover:bg-loss/10 rounded-xl transition-colors">
+          删除账户
+        </button>
+        <div class="flex gap-2 ml-auto">
+          <button onclick="closeAccountEditModal()"
+            class="px-5 py-2.5 text-sm font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-xl transition-colors">取消</button>
+          <button onclick="saveAccountEdit()"
+            class="px-5 py-2.5 text-sm font-semibold bg-zinc-100 text-zinc-900 hover:bg-white rounded-xl transition-colors">保存</button>
+        </div>
       </div>
     </div>
   </div>
@@ -505,6 +531,7 @@
   const INITIAL_BALANCE_KEY = '_initialBalance';
   const BALANCE_LOCKED_KEY = '_initialBalanceLocked';
   const PROFIT_TARGET_KEY = '_profitTarget';
+  const STATUS_KEY = 'status';
 
   // ---- State ----
   const now = new Date();
@@ -513,6 +540,7 @@
   let currentAccount = null;
   let allAccounts = {};
   let pnlData = {};
+  let accountEditSelectedStatus = 'Active';
 
   // ---- Utilities ----
   function fmtDate(y, m, d) {
@@ -587,12 +615,37 @@
     localStorage.setItem(LAST_ACCOUNT_KEY, currentAccount);
   }
 
+  function getLatestEntryDate(accountData) {
+    let latest = null;
+    for (const key of Object.keys(accountData)) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+        if (!latest || key > latest) latest = key;
+      }
+    }
+    return latest;
+  }
+
+  function syncMonthToLatestEntry() {
+    const latestDate = getLatestEntryDate(pnlData);
+    if (latestDate) {
+      const { y, m } = parseDate(latestDate);
+      currentYear = y;
+      currentMonth = m;
+    } else {
+      currentYear = now.getFullYear();
+      currentMonth = now.getMonth();
+    }
+  }
+
   function switchAccount(name) {
     allAccounts[currentAccount] = pnlData;
     currentAccount = name;
     if (!allAccounts[name]) allAccounts[name] = {};
     pnlData = allAccounts[name];
     localStorage.setItem(LAST_ACCOUNT_KEY, currentAccount);
+
+    syncMonthToLatestEntry();
+
     refreshAccountBtn();
     renderAll();
   }
@@ -638,9 +691,21 @@
     saveData();
   }
 
+  function getAccountStatus(name) {
+    const acc = allAccounts[name];
+    if (!acc) return 'Active';
+    return acc[STATUS_KEY] || 'Active';
+  }
+
+  function setAccountStatus(name, status) {
+    if (!allAccounts[name]) return;
+    allAccounts[name][STATUS_KEY] = status;
+    localStorage.setItem(CALENDARS_KEY, JSON.stringify(allAccounts));
+  }
+
   function getCurrentBalance() {
     const allPnL = sumPnL(Object.entries(pnlData)
-      .filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY)
+      .filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY && k !== STATUS_KEY)
       .map(([, v]) => v));
     return getInitialBalance() + allPnL;
   }
@@ -696,7 +761,7 @@
 
   function openBalanceModal() {
     const totalPnL = sumPnL(Object.entries(pnlData)
-      .filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY)
+      .filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY && k !== STATUS_KEY)
       .map(([, v]) => v));
     document.getElementById('balanceTotalPnL').textContent = fmtPnL(totalPnL);
     document.getElementById('balanceTotalPnL').className = 'text-sm font-sans font-semibold ' +
@@ -717,7 +782,7 @@
 
   function updateBalancePreview() {
     const totalPnL = sumPnL(Object.entries(pnlData)
-      .filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY)
+      .filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY && k !== STATUS_KEY)
       .map(([, v]) => v));
     const raw = document.getElementById('balanceInitialInput').value;
     const initial = parseFloat(raw) || 0;
@@ -741,20 +806,31 @@
   // ---- Accounts ----
   function refreshAccountBtn() {
     const label = document.getElementById('accountBtnLabel');
-    if (label) label.textContent = currentAccount;
+    const st = getAccountStatus(currentAccount);
+    const dotColor = st === 'Breached' ? '#F543A5' : '#A2E736';
+    if (label) label.innerHTML = `<span class="w-2 h-2 rounded-full inline-block mr-1.5 flex-shrink-0" style="background-color:${dotColor};box-shadow:0 0 4px ${dotColor}"></span>${currentAccount}`;
     // Rebuild dropdown menu items
     const menu = document.getElementById('accountMenuItems');
     if (!menu) return;
-    const names = Object.keys(allAccounts).sort();
-    menu.innerHTML = names.map(n => `
+    const names = Object.keys(allAccounts).sort((a, b) => {
+      const sa = getAccountStatus(a) === 'Breached' ? 1 : 0;
+      const sb = getAccountStatus(b) === 'Breached' ? 1 : 0;
+      if (sa !== sb) return sa - sb;
+      return a.localeCompare(b);
+    });
+    menu.innerHTML = names.map(n => {
+      const ast = getAccountStatus(n);
+      const adot = ast === 'Breached' ? '#F543A5' : '#A2E736';
+      return `
       <div class="flex items-center justify-between px-3.5 py-2 hover:bg-zinc-700 transition-colors cursor-pointer ${n === currentAccount ? 'bg-zinc-700/50' : ''}">
-        <span class="text-xs sm:text-sm text-zinc-200 truncate flex-1" onclick="closeAccountMenu(); switchAccount('${n.replace(/'/g, "\\'")}')">${n}</span>
-        <button onclick="event.stopPropagation(); closeAccountMenu(); openEditAccountModal('${n.replace(/'/g, "\\'")}')" title="编辑账户名"
-          class="ml-1.5 text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0 text-sm leading-none">✏️</button>
-        <button onclick="event.stopPropagation(); closeAccountMenu(); openDeleteAccountModal('${n.replace(/'/g, "\\'")}')" title="删除账户"
-          class="ml-1.5 text-zinc-500 hover:text-loss transition-colors flex-shrink-0 text-sm leading-none">🗑️</button>
-      </div>
-    `).join('');
+        <span class="flex items-center gap-2 flex-1 min-w-0" onclick="closeAccountMenu(); switchAccount('${n.replace(/'/g, "\\'")}')">
+          <span class="w-2 h-2 rounded-full flex-shrink-0" style="background-color:${adot};box-shadow:0 0 5px ${adot}"></span>
+          <span class="text-xs sm:text-sm text-zinc-200 truncate">${n}</span>
+        </span>
+        <button onclick="event.stopPropagation(); openAccountEditModal('${n.replace(/'/g, "\\'")}')"
+          class="ml-2 text-xs text-zinc-500 hover:text-zinc-200 transition-colors flex-shrink-0">编辑</button>
+      </div>`;
+    }).join('');
   }
 
   function toggleAccountMenu() {
@@ -802,7 +878,7 @@
     if (!name) return;
     if (allAccounts[name]) { showToast('账户名已存在', 'error'); return; }
     allAccounts[currentAccount] = pnlData;
-    allAccounts[name] = {};
+    allAccounts[name] = { [STATUS_KEY]: 'Active' };
     currentAccount = name;
     pnlData = allAccounts[name];
     saveData();
@@ -810,6 +886,83 @@
     refreshAccountBtn();
     renderAll();
     showToast('账户已创建');
+  }
+
+  // ---- Unified Account Edit Modal (rename + status + delete) ----
+  function openAccountEditModal(accountName) {
+    document.getElementById('accountEditOldName').value = accountName;
+    document.getElementById('accountEditName').value = accountName;
+    document.getElementById('accountEditTitle').textContent = `编辑账户：${accountName}`;
+    document.getElementById('accountEditError').classList.add('hidden');
+    accountEditSelectedStatus = getAccountStatus(accountName);
+    updateStatusToggleUI();
+    const m = document.getElementById('accountEditModal');
+    m.style.display = 'flex';
+    const card = m.querySelector('.modal-card');
+    card.style.animation = 'none'; card.offsetHeight;
+    card.style.animation = 'scaleIn 0.2s ease-out';
+    setTimeout(() => {
+      const inp = document.getElementById('accountEditName');
+      inp.focus();
+      const len = inp.value.length;
+      inp.setSelectionRange(len, len);
+    }, 100);
+  }
+
+  function closeAccountEditModal() {
+    document.getElementById('accountEditModal').style.display = 'none';
+  }
+
+  function selectAccountStatus(status) {
+    accountEditSelectedStatus = status;
+    updateStatusToggleUI();
+  }
+
+  function updateStatusToggleUI() {
+    const activeBtn = document.getElementById('statusActiveBtn');
+    const breachedBtn = document.getElementById('statusBreachedBtn');
+    const sel = accountEditSelectedStatus;
+    activeBtn.className = 'flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ' +
+      (sel === 'Active'
+        ? 'bg-profit/10 border-profit text-profit'
+        : 'bg-zinc-800 border-zinc-700/50 text-zinc-500 hover:text-zinc-300');
+    breachedBtn.className = 'flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ' +
+      (sel === 'Breached'
+        ? 'bg-loss/10 border-loss text-loss'
+        : 'bg-zinc-800 border-zinc-700/50 text-zinc-500 hover:text-zinc-300');
+  }
+
+  function saveAccountEdit() {
+    const oldName = document.getElementById('accountEditOldName').value;
+    const newName = document.getElementById('accountEditName').value.trim();
+    const errEl   = document.getElementById('accountEditError');
+
+    if (!newName) { errEl.textContent = '账户名不能为空'; errEl.classList.remove('hidden'); return; }
+    if (newName.length > 30) { errEl.textContent = '账户名不能超过 30 个字符'; errEl.classList.remove('hidden'); return; }
+    if (newName !== oldName && allAccounts[newName]) { errEl.textContent = '账户名已存在'; errEl.classList.remove('hidden'); return; }
+
+    // Rename account if changed
+    if (newName !== oldName) {
+      allAccounts[newName] = allAccounts[oldName];
+      delete allAccounts[oldName];
+      if (currentAccount === oldName) currentAccount = newName;
+    }
+
+    // Update status
+    setAccountStatus(newName, accountEditSelectedStatus);
+
+    pnlData = allAccounts[currentAccount];
+    saveData();
+    closeAccountEditModal();
+    refreshAccountBtn();
+    renderAll();
+    showToast('账户已更新');
+  }
+
+  function deleteAccountFromEdit() {
+    const accountName = document.getElementById('accountEditOldName').value;
+    closeAccountEditModal();
+    openDeleteAccountModal(accountName);
   }
 
   function openDeleteAccountModal(accountName) {
@@ -843,49 +996,6 @@
     refreshAccountBtn();
     renderAll();
     showToast(`已删除「${target}」`);
-  }
-
-  function openEditAccountModal(accountName) {
-    document.getElementById('editAccountOldName').value = accountName;
-    document.getElementById('editAccountName').value = accountName;
-    document.getElementById('editAccountError').classList.add('hidden');
-    const m = document.getElementById('editAccountModal');
-    m.style.display = 'flex';
-    const card = m.querySelector('.modal-card');
-    card.style.animation = 'none'; card.offsetHeight;
-    card.style.animation = 'scaleIn 0.2s ease-out';
-    setTimeout(() => {
-      const inp = document.getElementById('editAccountName');
-      inp.focus();
-      const len = inp.value.length;
-      inp.setSelectionRange(len, len);
-    }, 100);
-  }
-
-  function closeEditAccountModal() {
-    document.getElementById('editAccountModal').style.display = 'none';
-  }
-
-  function confirmEditAccount() {
-    const oldName = document.getElementById('editAccountOldName').value;
-    const newName = document.getElementById('editAccountName').value.trim();
-    const errEl   = document.getElementById('editAccountError');
-
-    if (!newName) { errEl.textContent = '账户名不能为空'; errEl.classList.remove('hidden'); return; }
-    if (newName.length > 30) { errEl.textContent = '账户名不能超过 30 个字符'; errEl.classList.remove('hidden'); return; }
-    if (newName !== oldName && allAccounts[newName]) { errEl.textContent = '账户名已存在'; errEl.classList.remove('hidden'); return; }
-
-    if (newName !== oldName) {
-      allAccounts[newName] = allAccounts[oldName];
-      delete allAccounts[oldName];
-      if (currentAccount === oldName) currentAccount = newName;
-    }
-    pnlData = allAccounts[currentAccount];
-    saveData();
-    closeEditAccountModal();
-    refreshAccountBtn();
-    renderAll();
-    showToast('账户名已更新');
   }
 
   // ---- Statistics ----
@@ -963,7 +1073,7 @@
   function renderStatsCards() {
     const monthEntries = getMonthEntries(currentYear, currentMonth);
     const yearEntries  = getYearEntries(currentYear);
-    const allEntries   = Object.entries(pnlData).filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY).map(([k,v]) => ({ date: k, ...v }));
+    const allEntries   = Object.entries(pnlData).filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY && k !== STATUS_KEY).map(([k,v]) => ({ date: k, ...v }));
 
     const monthPnL = sumPnL(monthEntries);
     const yearPnL  = sumPnL(yearEntries);
@@ -1465,7 +1575,7 @@
   function exportData() {
     const exportData = {};
     for (const [k, v] of Object.entries(pnlData)) {
-      if (k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY) exportData[k] = v;
+      if (k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY && k !== STATUS_KEY) exportData[k] = v;
     }
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1592,7 +1702,7 @@
     const confirmModal = document.getElementById('confirmClearModal');
     const newAccModal = document.getElementById('newAccountModal');
     const delAccModal = document.getElementById('deleteAccountModal');
-    const editAccModal = document.getElementById('editAccountModal');
+    const accEditModal = document.getElementById('accountEditModal');
     const balanceModal = document.getElementById('balanceModal');
     const targetModal = document.getElementById('targetModal');
     const anyModalOpen = (m) => m && m.style.display === 'flex';
@@ -1600,9 +1710,9 @@
     if (anyModalOpen(delAccModal)) {
       if (e.key === 'Escape') { closeDeleteAccountModal(); return; }
     }
-    if (anyModalOpen(editAccModal)) {
-      if (e.key === 'Escape') { closeEditAccountModal(); return; }
-      if (e.key === 'Enter') { confirmEditAccount(); return; }
+    if (anyModalOpen(accEditModal)) {
+      if (e.key === 'Escape') { closeAccountEditModal(); return; }
+      if (e.key === 'Enter') { saveAccountEdit(); return; }
     }
     if (anyModalOpen(newAccModal)) {
       if (e.key === 'Escape') { closeNewAccountModal(); return; }
@@ -1622,7 +1732,7 @@
       if (e.key === 'Escape') { closeModal(); }
       if (e.key === 'Enter' && document.activeElement?.tagName !== 'TEXTAREA') { saveModalEntry(); }
     }
-    if (!anyModalOpen(modal) && !anyModalOpen(confirmModal) && !anyModalOpen(newAccModal) && !anyModalOpen(delAccModal) && !anyModalOpen(editAccModal) && !anyModalOpen(balanceModal) && !anyModalOpen(targetModal)) {
+    if (!anyModalOpen(modal) && !anyModalOpen(confirmModal) && !anyModalOpen(newAccModal) && !anyModalOpen(delAccModal) && !anyModalOpen(accEditModal) && !anyModalOpen(balanceModal) && !anyModalOpen(targetModal)) {
       if (e.key === 'ArrowLeft')  { goToPrevMonth(); }
       if (e.key === 'ArrowRight') { goToNextMonth(); }
     }
@@ -1668,6 +1778,7 @@
   function init() {
     initTheme();
     loadData();
+    syncMonthToLatestEntry();
     refreshAccountBtn();
     renderAll();
   }
