@@ -794,7 +794,6 @@
   }
 
   function saveBalance() {
-    if (isBalanceLocked()) { showToast('请先解锁再修改初始资金', 'error'); return; }
     const raw = document.getElementById('balanceInitialInput').value;
     const initial = parseFloat(raw) || 0;
     setInitialBalance(initial);
@@ -1290,6 +1289,21 @@
     const yS = (val) => PAD.top + plotH / 2 - (val / yRange) * (plotH / 2);
     const y0  = yS(0);
 
+    // Find the first non-zero data point for leading flat segment color
+    let firstNonZeroDay = -1;
+    let firstNonZeroX = Infinity;
+    let leadingColor = TC.gray;
+    let leadingFill = TC.greenFill;
+    for (const p of points) {
+      if (!p._virtual && p.value !== 0) {
+        firstNonZeroDay = p.day;
+        firstNonZeroX = xS(p.day);
+        leadingColor = p.value > 0 ? TC.green : TC.red;
+        leadingFill = p.value > 0 ? TC.greenFill : TC.redFill;
+        break;
+      }
+    }
+
     // ---- Grid (dashed) ----
     ctx.save();
     ctx.strokeStyle = TC.grid;
@@ -1366,6 +1380,15 @@
     const rawCurvePts = points.map(p => ({ x: xS(p.day), y: yS(p.value) }));
     const curvePts = getCurvePoints(rawCurvePts, 16);
 
+    // Clamp leading flat portion to y0 to prevent Catmull-Rom oscillation
+    // (control point cp2y in the last zero segment is influenced by the first non-zero point)
+    if (firstNonZeroDay > 1) {
+      const clampX = xS(firstNonZeroDay - 1);
+      for (const pt of curvePts) {
+        if (pt.x < clampX) pt.y = y0;
+      }
+    }
+
     // ---- Fill areas ----
     function fillSegment(x0, y0v, x1, y1v, color, yBase) {
       ctx.fillStyle = color;
@@ -1384,9 +1407,11 @@
       const v0 = p0.value, v1 = p1.value;
 
       if (v0 >= 0 && v1 >= 0) {
-        fillSegment(x0_, v0, x1_, v1, TC.greenFill, y0);
+        const fill = (v0 === 0 && v1 === 0 && x1_ <= firstNonZeroX) ? leadingFill : TC.greenFill;
+        fillSegment(x0_, v0, x1_, v1, fill, y0);
       } else if (v0 <= 0 && v1 <= 0) {
-        fillSegment(x0_, v0, x1_, v1, TC.redFill, y0);
+        const fill = (v0 === 0 && v1 === 0 && x1_ <= firstNonZeroX) ? leadingFill : TC.redFill;
+        fillSegment(x0_, v0, x1_, v1, fill, y0);
       } else {
         const t = v0 / (v0 - v1);
         const cx = x0_ + t * (x1_ - x0_);
@@ -1409,7 +1434,15 @@
 
       // Determine segment color based on Y position relative to y0
       const midY = (y0v + y1v) / 2;
-      const c = midY < y0 ? TC.green : midY > y0 ? TC.red : TC.gray;
+      let c;
+      if (midY < y0) {
+        c = TC.green;
+      } else if (midY > y0) {
+        c = TC.red;
+      } else {
+        // Flat at zero: use leadingColor if before the first data point
+        c = (p1.x < firstNonZeroX) ? leadingColor : TC.gray;
+      }
 
       ctx.strokeStyle = c;
       ctx.shadowColor = c;
