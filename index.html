@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>P&L Calendar</title>
+  <!-- Websitte logo -->
+  <link rel="icon" href="favicon.png" type="image/png" sizes="32x32">
 
   <!-- Preconnect for faster font delivery -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -280,7 +282,7 @@
 
     <!-- Chart -->
     <div class="bg-zinc-900/80 rounded-xl p-4 sm:p-5 shadow-xl shadow-black/50 border border-zinc-800/50">
-      <h3 class="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-3">本月资金曲线（累计盈亏）</h3>
+      <h3 class="text-sm font-semibold text-zinc-500 uppercase tracking-wide mb-3">全历史资金曲线（累计盈亏）</h3>
       <div class="relative w-full" style="height:240px">
         <canvas id="pnlChart"></canvas>
         <div id="chartTooltip" class="absolute pointer-events-none hidden bg-zinc-800/95 text-zinc-100 text-xs font-sans px-2.5 py-1.5 rounded-lg border border-[#555]/50 shadow-xl whitespace-nowrap z-10" style="transform:translate(-50%,-110%)"></div>
@@ -1012,6 +1014,13 @@
       .map(([k, v]) => ({ date: k, ...v }));
   }
 
+  function getAllEntries() {
+    return Object.entries(pnlData)
+      .filter(([k]) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, val]) => ({ date, ...val }));
+  }
+
   function sumPnL(entries) {
     return entries.reduce((s, e) => s + e.pnl, 0);
   }
@@ -1092,7 +1101,7 @@
         return `
           <div class="bg-zinc-900/80 rounded-xl p-3 sm:p-4 border border-zinc-800/50 text-center cursor-pointer hover:bg-zinc-800/60 transition-colors" onclick="openTargetModal()" title="点击设置目标盈利">
             <div class="text-xs text-zinc-500 mb-1">${c.label}</div>
-            <div class="text-base sm:text-lg font-sans font-semibold ${has ? 'text-white' : 'text-zinc-500'}">${has ? fmtPnL(c.value) : '--'}</div>
+            <div class="text-base sm:text-lg font-sans font-semibold ${has ? 'text-zinc-50' : 'text-zinc-500'}">${has ? fmtPnL(c.value) : '--'}</div>
           </div>`;
       }
       const cls = c.value > 0 ? 'text-profit' : c.value < 0 ? 'text-loss' : 'text-zinc-400';
@@ -1187,27 +1196,54 @@
   }
 
   function renderAdvancedStats() {
-    const monthEntries = getMonthEntries(currentYear, currentMonth);
-    const stats = calcTradeStats(monthEntries, currentYear, currentMonth);
+    const allEntries = getAllEntries();
+    const nonZero = allEntries.filter(e => e.pnl !== 0);
+    const hasData = nonZero.length > 0;
 
-    const hasData = stats.tradingDays > 0;
+    const wins  = nonZero.filter(e => e.pnl > 0);
+    const losses = nonZero.filter(e => e.pnl < 0);
+    const tradingDays = nonZero.length;
+    const winRate = tradingDays > 0 ? (wins.length / tradingDays * 100) : 0;
+    const totalWins = sumPnL(wins);
+    const totalLosses = Math.abs(sumPnL(losses));
+    const avgWinAmt = wins.length ? totalWins / wins.length : 0;
+    const avgLossAmt = losses.length ? totalLosses / losses.length : 0;
+    const winLossRatio = losses.length > 0 ? avgWinAmt / avgLossAmt : (wins.length > 0 ? Infinity : 0);
+
+    // Max drawdown from cumulative P&L over all history
+    let peak = 0, running = 0, maxDD = 0;
+    for (const e of allEntries) {
+      running += e.pnl;
+      if (running > peak) peak = running;
+      const dd = peak - running;
+      if (dd > maxDD) maxDD = dd;
+    }
+
+    // Expectancy
+    const lossRate = tradingDays > 0 ? 100 - winRate : 0;
+    const expectancy = tradingDays > 0 ? ((winRate / 100) * avgWinAmt) - ((lossRate / 100) * avgLossAmt) : 0;
+
+    // Best / worst single-day P&L
+    const bestDay  = hasData ? Math.max(...nonZero.map(e => e.pnl)) : null;
+    const worstDay = hasData ? Math.min(...nonZero.map(e => e.pnl)) : null;
+
     const tip = (text) => `<span class="stat-tip inline-flex items-center justify-center ml-1 w-3.5 h-3.5 rounded-full border border-[#555] text-zinc-500 hover:text-zinc-300 hover:border-zinc-400 text-[9px] font-sans leading-none font-medium transition-colors" data-tip="${text.replace(/"/g, '&quot;')}" onmouseenter="showStatTip(event, this)" onmouseleave="hideStatTip()">?</span>`;
 
     const items = [
-      { label: '交易天数', value: stats.tradingDays, unit: '天', color: 'text-zinc-200', tip: '' },
-      { label: '本月胜率', value: hasData ? stats.winRate.toFixed(1) : '--', unit: '%', color: hasData ? (stats.winRate >= 50 ? 'text-profit' : 'text-loss') : 'text-zinc-500', tip: '' },
+      { label: '交易天数', value: tradingDays, unit: '天', color: 'text-zinc-200', tip: '' },
+      { label: '胜率', value: hasData ? winRate.toFixed(1) : '--', unit: '%', color: hasData ? (winRate >= 50 ? 'text-profit' : 'text-loss') : 'text-zinc-500', tip: '' },
       { label: `盈亏比${tip('盈亏比 = 平均盈利 / 平均亏损（绝对值）。亏损天数为 0 时显示 ∞。')}`,
-        value: hasData ? (stats.winLossRatio === Infinity ? '∞' : stats.winLossRatio.toFixed(2)) : '--', unit: '', color: hasData ? (stats.winLossRatio >= 1 ? 'text-profit' : 'text-loss') : 'text-zinc-500', rawLabel: '盈亏比' },
-      { label: `盈利因子${tip('盈利因子 = 总盈利 / 总亏损（绝对值）。总亏损为 0 时显示 ∞。')}`,
-        value: hasData ? (stats.profitFactor === Infinity ? '∞' : stats.profitFactor.toFixed(2)) : '--', unit: '', color: hasData ? (stats.profitFactor >= 1 ? 'text-profit' : 'text-loss') : 'text-zinc-500', rawLabel: '盈利因子' },
-      { label: `恢复因子${tip('恢复因子 = 当月总净收益 / 最大回撤（绝对值）。净收益为负时显示 0。')}`,
-        value: hasData ? (stats.recoveryFactor === Infinity ? '∞' : stats.recoveryFactor.toFixed(2)) : '--', unit: '', color: hasData ? (stats.recoveryFactor >= 1 ? 'text-profit' : 'text-loss') : 'text-zinc-500', rawLabel: '恢复因子' },
-      { label: `每日期望${tip('每日期望 =（平均盈利 × 盈利概率）−（平均亏损 × 亏损概率）。平均每天的预期盈亏，正值代表长期正向收益。')}`,
-        value: hasData ? fmtPnL(stats.expectancy, true) : '--', unit: '', color: hasData ? (stats.expectancy > 0 ? 'text-profit' : stats.expectancy < 0 ? 'text-loss' : 'text-zinc-400') : 'text-zinc-500', rawLabel: '每日期望' },
-      { label: '最大回撤', value: hasData ? fmtPnL(-Math.abs(stats.maxDD), true) : '--', unit: '', color: hasData ? 'text-loss' : 'text-zinc-500', tip: '' },
+        value: hasData ? (winLossRatio === Infinity ? '∞' : winLossRatio.toFixed(2)) : '--', unit: '', color: hasData ? (winLossRatio >= 1 ? 'text-profit' : 'text-loss') : 'text-zinc-500' },
+      { label: '单天最大盈利',
+        value: hasData ? fmtPnL(bestDay, true) : '--', unit: '', color: hasData ? 'text-profit' : 'text-zinc-500', tip: '' },
+      { label: '单天最大亏损',
+        value: hasData ? fmtPnL(worstDay, true) : '--', unit: '', color: hasData ? 'text-loss' : 'text-zinc-500', tip: '' },
+      { label: `每日期望${tip('每日期望 =（平均盈利 × 盈利概率）−（平均亏损 × 亏损概率）。')}`,
+        value: hasData ? fmtPnL(expectancy, true) : '--', unit: '', color: hasData ? (expectancy > 0 ? 'text-profit' : expectancy < 0 ? 'text-loss' : 'text-zinc-400') : 'text-zinc-500' },
+      { label: '最大回撤', value: hasData ? fmtPnL(-Math.abs(maxDD), true) : '--', unit: '', color: hasData ? 'text-loss' : 'text-zinc-500', tip: '' },
       { label: '平均盈利/平均亏损',
         value: '--', unit: '', color: 'text-zinc-500', tip: '',
-        html: hasData ? `<span class="text-profit">${fmtPnL(stats.avgWin, true)}</span><span class="text-zinc-500"> / </span><span class="text-loss">${fmtPnL(-stats.avgLoss, true)}</span>` : null },
+        html: hasData ? `<span class="text-profit">${fmtPnL(avgWinAmt, true)}</span><span class="text-zinc-500"> / </span><span class="text-loss">${fmtPnL(-avgLossAmt, true)}</span>` : null },
     ];
 
     document.getElementById('advancedStats').innerHTML = items.map(i => `
@@ -1248,60 +1284,55 @@
       gray: '#888888',
     };
 
-    // ---- Data ----
-    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
-    // Find the last day in this month that has a P&L record
-    const prefix = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-`;
-    let lastDataDay = 0;
-    for (let d = daysInMonth; d >= 1; d--) {
-      const ds = prefix + String(d).padStart(2,'0');
-      if (pnlData[ds]) { lastDataDay = d; break; }
-    }
+    // ---- Data: all dated entries sorted chronologically ----
+    const entries = Object.entries(pnlData)
+      .filter(([k]) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+      .sort(([a], [b]) => a.localeCompare(b));
 
-    // No data at all this month: show placeholder
-    if (lastDataDay === 0) {
+    // No data at all: show placeholder
+    if (entries.length === 0) {
       ctx.fillStyle = TC.label;
       ctx.font = `${13*dpr}px system-ui`;
       ctx.textAlign = 'center';
-      ctx.fillText('本月无数据', W / 2, H / 2);
+      ctx.fillText('无数据', W / 2, H / 2);
       return;
     }
 
-    const points = [];   // { day, value }
+    // Build cumulative P&L data points
+    const dataPts = [];   // { date, value }
     let running = 0, maxAbs = 0;
-    for (let d = 1; d <= lastDataDay; d++) {
-      const e = getEntry(fmtDate(currentYear, currentMonth, d));
-      running += e ? e.pnl : 0;
+    for (const [date, val] of entries) {
+      running += val.pnl;
       const v = Math.round(running * 100) / 100;
-      points.push({ day: d, value: v });
+      dataPts.push({ date, value: v });
       if (Math.abs(v) > maxAbs) maxAbs = Math.abs(v);
     }
     if (maxAbs === 0) maxAbs = 1;
-    // Prepend virtual origin so the curve starts from 0 at the left edge
-    points.unshift({ day: 0, value: 0, _virtual: true });
+    const N = dataPts.length; // number of real data points
 
     // ---- Layout ----
     const PAD = { top: 16*dpr, right: 8*dpr, bottom: 28*dpr, left: 52*dpr };
     const plotW = W - PAD.left - PAD.right;
     const plotH = H - PAD.top - PAD.bottom;
-    const yRange = maxAbs * 1.2 || 10;
-    const xS = (day) => PAD.left + (day / lastDataDay) * plotW;
+    // Compute yRange: pad maxAbs by 10%, round up to a nice step
+    const padded = maxAbs * 1.1;
+    const order = Math.pow(10, Math.floor(Math.log10(padded || 1)));
+    const step = order / 4;
+    const yRange = Math.ceil((padded || 1) / step) * step;
     const yS = (val) => PAD.top + plotH / 2 - (val / yRange) * (plotH / 2);
     const y0  = yS(0);
 
-    // Find the first non-zero data point for leading flat segment color
-    let firstNonZeroDay = -1;
-    let firstNonZeroX = Infinity;
-    let leadingColor = TC.gray;
-    let leadingFill = TC.greenFill;
-    for (const p of points) {
-      if (!p._virtual && p.value !== 0) {
-        firstNonZeroDay = p.day;
-        firstNonZeroX = xS(p.day);
-        leadingColor = p.value > 0 ? TC.green : TC.red;
-        leadingFill = p.value > 0 ? TC.greenFill : TC.redFill;
-        break;
-      }
+    // X positioning: index-based, evenly spaced. Virtual origin at idx=0.
+    const totalPts = N + 1; // +1 for virtual origin
+    function xPos(idx) {
+      // idx 0 = virtual origin (left edge), idx N = last data point (right edge)
+      return PAD.left + (idx / (totalPts - 1)) * plotW;
+    }
+
+    // Build points array: virtual origin + all data points
+    const points = [{ _virtual: true, value: 0, idx: 0 }];
+    for (let i = 0; i < N; i++) {
+      points.push({ ...dataPts[i], idx: i + 1 });
     }
 
     // ---- Grid (dashed) ----
@@ -1332,21 +1363,30 @@
     ctx.font      = `${10*dpr}px Recursive, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif`;
     ctx.textAlign = 'right';
     for (let i = 0; i <= gridLines; i++) {
-      const val = yRange * (1 - i / gridLines) - yRange / 2;
+      const val = yRange * (1 - (i * 2) / gridLines); // spans [+yRange, -yRange]
       const y = PAD.top + (plotH / gridLines) * i;
       const abv = Math.abs(val);
       const lbl = (val >= 0 ? '$' : '-$') + (abv >= 1000 ? (abv/1000).toFixed(1)+'k' : abv.toFixed(0));
-      if (Math.abs(val) < yRange * 0.02) continue; // skip near-zero label (handled by zero line)
+      if (abv < yRange * 0.01) continue; // skip near-zero label
       ctx.fillText(lbl, PAD.left - 6*dpr, y + 3.5*dpr);
     }
 
-    // X-axis labels (every ~7 days, up to lastDataDay)
+    // X-axis labels: show dates at intervals to avoid overcrowding
     ctx.textAlign = 'center';
     ctx.fillStyle = TC.label;
     ctx.font      = `${9*dpr}px Recursive, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif`;
-    const step = Math.max(1, Math.round(lastDataDay / 10));
-    for (let d = 1; d <= lastDataDay; d += step) {
-      ctx.fillText(d, xS(d), H - PAD.bottom + 14*dpr);
+    const maxLabels = Math.min(N, 10);
+    const labelStep = Math.max(1, Math.ceil(N / maxLabels));
+    // Show first date, then every labelStep, ensuring last is included
+    const shown = new Set();
+    shown.add(0); // first data point
+    if (N > 1) shown.add(N - 1); // last data point
+    for (let i = labelStep; i < N - 1; i += labelStep) shown.add(i);
+    for (const i of shown) {
+      const p = dataPts[i];
+      const d = parseDate(p.date);
+      const lbl = `${d.m + 1}/${d.d}`;
+      ctx.fillText(lbl, xPos(i + 1), H - PAD.bottom + 14*dpr);
     }
 
     // ---- Smooth curve helper (Catmull-Rom → sampled points) ----
@@ -1377,17 +1417,8 @@
     }
 
     // Build screen-space points for the curve
-    const rawCurvePts = points.map(p => ({ x: xS(p.day), y: yS(p.value) }));
+    const rawCurvePts = points.map(p => ({ x: xPos(p.idx), y: yS(p.value) }));
     const curvePts = getCurvePoints(rawCurvePts, 16);
-
-    // Clamp leading flat portion to y0 to prevent Catmull-Rom oscillation
-    // (control point cp2y in the last zero segment is influenced by the first non-zero point)
-    if (firstNonZeroDay > 1) {
-      const clampX = xS(firstNonZeroDay - 1);
-      for (const pt of curvePts) {
-        if (pt.x < clampX) pt.y = y0;
-      }
-    }
 
     // ---- Fill areas ----
     function fillSegment(x0, y0v, x1, y1v, color, yBase) {
@@ -1403,15 +1434,13 @@
 
     for (let i = 0; i < points.length - 1; i++) {
       const p0 = points[i], p1 = points[i + 1];
-      const x0_ = xS(p0.day), x1_ = xS(p1.day);
+      const x0_ = xPos(p0.idx), x1_ = xPos(p1.idx);
       const v0 = p0.value, v1 = p1.value;
 
       if (v0 >= 0 && v1 >= 0) {
-        const fill = (v0 === 0 && v1 === 0 && x1_ <= firstNonZeroX) ? leadingFill : TC.greenFill;
-        fillSegment(x0_, v0, x1_, v1, fill, y0);
+        fillSegment(x0_, v0, x1_, v1, TC.greenFill, y0);
       } else if (v0 <= 0 && v1 <= 0) {
-        const fill = (v0 === 0 && v1 === 0 && x1_ <= firstNonZeroX) ? leadingFill : TC.redFill;
-        fillSegment(x0_, v0, x1_, v1, fill, y0);
+        fillSegment(x0_, v0, x1_, v1, TC.redFill, y0);
       } else {
         const t = v0 / (v0 - v1);
         const cx = x0_ + t * (x1_ - x0_);
@@ -1434,15 +1463,7 @@
 
       // Determine segment color based on Y position relative to y0
       const midY = (y0v + y1v) / 2;
-      let c;
-      if (midY < y0) {
-        c = TC.green;
-      } else if (midY > y0) {
-        c = TC.red;
-      } else {
-        // Flat at zero: use leadingColor if before the first data point
-        c = (p1.x < firstNonZeroX) ? leadingColor : TC.gray;
-      }
+      const c = midY < y0 ? TC.green : midY > y0 ? TC.red : TC.gray;
 
       ctx.strokeStyle = c;
       ctx.shadowColor = c;
@@ -1466,23 +1487,26 @@
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
 
-      // Find nearest real data point
+      // Find nearest real data point by x-distance
       let best = null, bestDist = Infinity;
-      for (const p of points) {
-        if (p._virtual) continue;
-        const dx = xS(p.day) / dpr - mx;
-        const dy = yS(p.value) / dpr - my;
+      for (let i = 0; i < N; i++) {
+        const p = dataPts[i];
+        const px = xPos(i + 1) / dpr;
+        const py = yS(p.value) / dpr;
+        const dx = px - mx;
+        const dy = py - my;
         const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist < bestDist && dist < 30) { best = p; bestDist = dist; }
+        if (dist < bestDist && dist < 40) { best = { ...p, idx: i + 1 }; bestDist = dist; }
       }
 
       if (best) {
-        const tx = xS(best.day) / dpr;
+        const tx = xPos(best.idx) / dpr;
         const ty = yS(best.value) / dpr;
         tooltip.style.left = tx + 'px';
         tooltip.style.top  = ty + 'px';
         const colorHex = best.value > 0 ? '#A2E736' : best.value < 0 ? '#F543A5' : '#a0a0a0';
-        tooltip.innerHTML = `${currentYear}年${MONTH_NAMES[currentMonth]}${best.day}日<br><span style="color:${colorHex}">${fmtPnL(best.value)}</span>`;
+        const pd = parseDate(best.date);
+        tooltip.innerHTML = `${pd.y}年${MONTH_NAMES[pd.m]}${pd.d}日<br><span style="color:${colorHex}">${fmtPnL(best.value)}</span>`;
         tooltip.classList.remove('hidden');
 
         // Redraw chart clean, then overlay guide + highlighted dot
@@ -1494,8 +1518,8 @@
         cctx.lineWidth   = 1 * dpr;
         cctx.setLineDash([4*dpr, 4*dpr]);
         cctx.beginPath();
-        cctx.moveTo(xS(best.day), PAD.top);
-        cctx.lineTo(xS(best.day), H - PAD.bottom);
+        cctx.moveTo(xPos(best.idx), PAD.top);
+        cctx.lineTo(xPos(best.idx), H - PAD.bottom);
         cctx.stroke();
         cctx.setLineDash([]);
 
@@ -1505,18 +1529,18 @@
         cctx.shadowBlur = 8 * dpr;
         cctx.fillStyle = dotColor;
         cctx.beginPath();
-        cctx.arc(xS(best.day), yS(best.value), 4 * dpr, 0, Math.PI * 2);
+        cctx.arc(xPos(best.idx), yS(best.value), 4 * dpr, 0, Math.PI * 2);
         cctx.fill();
         // Sharp inner dot
         cctx.shadowBlur = 0;
         cctx.fillStyle = dotColor;
         cctx.beginPath();
-        cctx.arc(xS(best.day), yS(best.value), 2.5 * dpr, 0, Math.PI * 2);
+        cctx.arc(xPos(best.idx), yS(best.value), 2.5 * dpr, 0, Math.PI * 2);
         cctx.fill();
         // Center punch (bg color)
         cctx.fillStyle = getTheme() === 'light' ? '#ffffff' : '#141414';
         cctx.beginPath();
-        cctx.arc(xS(best.day), yS(best.value), 1.2 * dpr, 0, Math.PI * 2);
+        cctx.arc(xPos(best.idx), yS(best.value), 1.2 * dpr, 0, Math.PI * 2);
         cctx.fill();
       } else {
         tooltip.classList.add('hidden');
