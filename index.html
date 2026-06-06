@@ -234,7 +234,7 @@
     </header>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-4 gap-3 sm:gap-4 mb-6" id="statsCards"></div>
+    <div class="grid grid-cols-5 gap-2 sm:gap-3 mb-6" id="statsCards"></div>
 
     <!-- Month Navigation -->
     <div class="flex items-center justify-between mb-4">
@@ -478,6 +478,32 @@
     </div>
   </div>
 
+  <!-- ===== Set Max Loss Modal ===== -->
+  <div id="maxLossModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" onclick="closeMaxLossModal()">
+    <div class="absolute inset-0 bg-black/80 modal-enter"></div>
+    <div class="modal-card relative bg-zinc-900 rounded-xl shadow-2xl border border-zinc-700/50 w-full max-w-sm p-5 sm:p-6"
+         onclick="event.stopPropagation()">
+      <button onclick="closeMaxLossModal()" class="absolute top-4 right-4 text-zinc-500 hover:text-zinc-300 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      <h3 class="text-lg font-semibold text-zinc-100 mb-4">设置最大亏损</h3>
+      <p class="text-xs text-zinc-500 mb-4">设定单日最大亏损阈值，输入正数金额。</p>
+      <div class="relative mb-5">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-lg font-sans">$</span>
+        <input id="maxLossAmountInput" type="text" inputmode="decimal" placeholder="0.00"
+          oninput="filterPnlInput(this)"
+          class="w-full pl-9 pr-4 py-3 bg-zinc-800 rounded-xl border border-zinc-700/50 text-zinc-100 text-xl font-sans font-medium placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-all"
+          onkeydown="if(event.key==='Enter') saveMaxLoss()">
+      </div>
+      <div class="flex justify-end gap-3">
+        <button onclick="closeMaxLossModal()"
+          class="px-5 py-2.5 text-sm font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-xl transition-colors">取消</button>
+        <button onclick="saveMaxLoss()"
+          class="px-5 py-2.5 text-sm font-semibold bg-zinc-100 text-zinc-900 hover:bg-white rounded-xl transition-colors">保存</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== Set Initial Balance Modal ===== -->
   <div id="balanceModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" onclick="closeBalanceModal()">
     <div class="absolute inset-0 bg-black/80 modal-enter"></div>
@@ -533,6 +559,7 @@
   const INITIAL_BALANCE_KEY = '_initialBalance';
   const BALANCE_LOCKED_KEY = '_initialBalanceLocked';
   const PROFIT_TARGET_KEY = '_profitTarget';
+  const MAX_LOSS_KEY = '_maxLoss';
   const STATUS_KEY = 'status';
 
   // ---- State ----
@@ -693,6 +720,15 @@
     saveData();
   }
 
+  function getMaxLoss() {
+    return pnlData[MAX_LOSS_KEY] || 0;
+  }
+
+  function setMaxLoss(value) {
+    pnlData[MAX_LOSS_KEY] = Math.round(value * 100) / 100;
+    saveData();
+  }
+
   function getAccountStatus(name) {
     const acc = allAccounts[name];
     if (!acc) return 'Active';
@@ -707,7 +743,7 @@
 
   function getCurrentBalance() {
     const allPnL = sumPnL(Object.entries(pnlData)
-      .filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY && k !== STATUS_KEY)
+      .filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY && k !== MAX_LOSS_KEY && k !== STATUS_KEY)
       .map(([, v]) => v));
     return getInitialBalance() + allPnL;
   }
@@ -725,6 +761,29 @@
 
   function closeTargetModal() {
     document.getElementById('targetModal').style.display = 'none';
+  }
+
+  function openMaxLossModal() {
+    document.getElementById('maxLossAmountInput').value = getMaxLoss() ? getMaxLoss().toFixed(2) : '';
+    document.getElementById('maxLossModal').style.display = 'flex';
+    setTimeout(() => {
+      const input = document.getElementById('maxLossAmountInput');
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    }, 100);
+  }
+
+  function closeMaxLossModal() {
+    document.getElementById('maxLossModal').style.display = 'none';
+  }
+
+  function saveMaxLoss() {
+    const raw = document.getElementById('maxLossAmountInput').value;
+    const val = parseFloat(raw) || 0;
+    setMaxLoss(Math.abs(val));
+    closeMaxLossModal();
+    renderStatsCards();
+    showToast('最大亏损已更新');
   }
 
   function saveTarget() {
@@ -763,7 +822,7 @@
 
   function openBalanceModal() {
     const totalPnL = sumPnL(Object.entries(pnlData)
-      .filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY && k !== STATUS_KEY)
+      .filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY && k !== MAX_LOSS_KEY && k !== STATUS_KEY)
       .map(([, v]) => v));
     document.getElementById('balanceTotalPnL').textContent = fmtPnL(totalPnL);
     document.getElementById('balanceTotalPnL').className = 'text-sm font-sans font-semibold ' +
@@ -784,7 +843,7 @@
 
   function updateBalancePreview() {
     const totalPnL = sumPnL(Object.entries(pnlData)
-      .filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY && k !== STATUS_KEY)
+      .filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY && k !== MAX_LOSS_KEY && k !== STATUS_KEY)
       .map(([, v]) => v));
     const raw = document.getElementById('balanceInitialInput').value;
     const initial = parseFloat(raw) || 0;
@@ -1081,34 +1140,44 @@
   function renderStatsCards() {
     const monthEntries = getMonthEntries(currentYear, currentMonth);
     const yearEntries  = getYearEntries(currentYear);
-    const allEntries   = Object.entries(pnlData).filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY && k !== STATUS_KEY).map(([k,v]) => ({ date: k, ...v }));
+    const allEntries   = Object.entries(pnlData).filter(([k]) => k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY && k !== MAX_LOSS_KEY && k !== STATUS_KEY).map(([k,v]) => ({ date: k, ...v }));
 
     const monthPnL = sumPnL(monthEntries);
     const yearPnL  = sumPnL(yearEntries);
     const allPnL   = sumPnL(allEntries);
 
     const target = getProfitTarget();
+    const maxLoss = getMaxLoss();
     const cards = [
       { label: '本月', value: monthPnL, type: 'pnl' },
       { label: `${currentYear}年`, value: yearPnL, type: 'pnl' },
       { label: '全部', value: allPnL, type: 'pnl' },
       { label: '目标', value: target, type: 'target' },
+      { label: '最大亏损', value: maxLoss, type: 'maxLoss' },
     ];
 
     document.getElementById('statsCards').innerHTML = cards.map(c => {
       if (c.type === 'target') {
         const has = c.value > 0;
         return `
-          <div class="bg-zinc-900/80 rounded-xl p-3 sm:p-4 border border-zinc-800/50 text-center cursor-pointer hover:bg-zinc-800/60 transition-colors" onclick="openTargetModal()" title="点击设置目标盈利">
-            <div class="text-xs text-zinc-500 mb-1">${c.label}</div>
-            <div class="text-base sm:text-lg font-sans font-semibold ${has ? 'text-zinc-50' : 'text-zinc-500'}">${has ? fmtPnL(c.value) : '--'}</div>
+          <div class="bg-zinc-900/80 rounded-xl p-2 sm:p-3 border border-zinc-800/50 text-center cursor-pointer hover:bg-zinc-800/60 transition-colors" onclick="openTargetModal()" title="点击设置目标盈利">
+            <div class="text-[10px] sm:text-xs text-zinc-500 mb-0.5">${c.label}</div>
+            <div class="text-sm sm:text-base font-sans font-semibold ${has ? 'text-zinc-50' : 'text-zinc-500'}">${has ? fmtPnL(c.value) : '--'}</div>
+          </div>`;
+      }
+      if (c.type === 'maxLoss') {
+        const has = c.value > 0;
+        return `
+          <div class="bg-zinc-900/80 rounded-xl p-2 sm:p-3 border border-zinc-800/50 text-center cursor-pointer hover:bg-zinc-800/60 transition-colors" onclick="openMaxLossModal()" title="点击设置最大亏损">
+            <div class="text-[10px] sm:text-xs text-zinc-500 mb-0.5">${c.label}</div>
+            <div class="text-sm sm:text-base font-sans font-semibold ${has ? 'text-loss' : 'text-zinc-500'}">${has ? fmtPnL(c.value) : '--'}</div>
           </div>`;
       }
       const cls = c.value > 0 ? 'text-profit' : c.value < 0 ? 'text-loss' : 'text-zinc-400';
       return `
-        <div class="bg-zinc-900/80 rounded-xl p-3 sm:p-4 border border-zinc-800/50 text-center">
-          <div class="text-xs text-zinc-500 mb-1">${c.label}</div>
-          <div class="text-base sm:text-lg font-sans font-semibold ${cls}">${fmtPnL(c.value)}</div>
+        <div class="bg-zinc-900/80 rounded-xl p-2 sm:p-3 border border-zinc-800/50 text-center">
+          <div class="text-[10px] sm:text-xs text-zinc-500 mb-0.5">${c.label}</div>
+          <div class="text-sm sm:text-base font-sans font-semibold ${cls}">${fmtPnL(c.value)}</div>
         </div>`;
     }).join('');
   }
@@ -1632,7 +1701,7 @@
   function exportData() {
     const exportData = {};
     for (const [k, v] of Object.entries(pnlData)) {
-      if (k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY && k !== STATUS_KEY) exportData[k] = v;
+      if (k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY && k !== MAX_LOSS_KEY && k !== STATUS_KEY) exportData[k] = v;
     }
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1762,6 +1831,7 @@
     const accEditModal = document.getElementById('accountEditModal');
     const balanceModal = document.getElementById('balanceModal');
     const targetModal = document.getElementById('targetModal');
+    const maxLossModal = document.getElementById('maxLossModal');
     const anyModalOpen = (m) => m && m.style.display === 'flex';
 
     if (anyModalOpen(delAccModal)) {
@@ -1781,6 +1851,9 @@
     if (anyModalOpen(targetModal)) {
       if (e.key === 'Escape') { closeTargetModal(); return; }
     }
+    if (anyModalOpen(maxLossModal)) {
+      if (e.key === 'Escape') { closeMaxLossModal(); return; }
+    }
     if (anyModalOpen(balanceModal)) {
       if (e.key === 'Escape') { closeBalanceModal(); return; }
       if (e.key === 'Enter') { saveBalance(); return; }
@@ -1789,7 +1862,7 @@
       if (e.key === 'Escape') { closeModal(); }
       if (e.key === 'Enter' && document.activeElement?.tagName !== 'TEXTAREA') { saveModalEntry(); }
     }
-    if (!anyModalOpen(modal) && !anyModalOpen(confirmModal) && !anyModalOpen(newAccModal) && !anyModalOpen(delAccModal) && !anyModalOpen(accEditModal) && !anyModalOpen(balanceModal) && !anyModalOpen(targetModal)) {
+    if (!anyModalOpen(modal) && !anyModalOpen(confirmModal) && !anyModalOpen(newAccModal) && !anyModalOpen(delAccModal) && !anyModalOpen(accEditModal) && !anyModalOpen(balanceModal) && !anyModalOpen(targetModal) && !anyModalOpen(maxLossModal)) {
       if (e.key === 'ArrowLeft')  { goToPrevMonth(); }
       if (e.key === 'ArrowRight') { goToNextMonth(); }
     }
