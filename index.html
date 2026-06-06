@@ -111,13 +111,15 @@
     .light-theme .bg-zinc-900\/80 { background-color: #ffffff !important; }
     .light-theme .bg-zinc-900\/30 { background-color: #f1f5f9 !important; }
     .light-theme .bg-zinc-800,
+    .light-theme .bg-zinc-800\/95,
+    .light-theme .bg-zinc-800\/80,
+    .light-theme .bg-zinc-800\/60,
     .light-theme .bg-zinc-800\/50,
     .light-theme .bg-zinc-800\/40,
     .light-theme .bg-zinc-800\/30,
     .light-theme .bg-zinc-800\/20,
     .light-theme .bg-zinc-800\/15,
-    .light-theme .bg-zinc-800\/10,
-    .light-theme .bg-zinc-800\/95 { background-color: #f8fafc !important; }
+    .light-theme .bg-zinc-800\/10 { background-color: #f8fafc !important; }
     .light-theme .bg-zinc-700,
     .light-theme .bg-zinc-700\/50,
     .light-theme .bg-zinc-700\/40 { background-color: #e2e8f0 !important; }
@@ -174,37 +176,187 @@
     .light-theme #chartTooltip { background-color: rgba(255,255,255,0.95) !important; color: #1e293b !important; border-color: #cbd5e1 !important; }
     .light-theme #statTooltip { background-color: #ffffff !important; color: #1e293b !important; border-color: #cbd5e1 !important; }
 
-    /* ---- Color Style B overrides ---- */
+    /* ---- Color Style B — deep navy / terminal aesthetic ---- */
+    .style-b body { background-color: #0c0e14 !important; color: #d0d3de !important; }
+
+    /* Background layers */
+    .style-b .bg-zinc-950       { background-color: #0c0e14 !important; }
+    .style-b .bg-zinc-900,
+    .style-b .bg-zinc-900\/80   { background-color: #131620 !important; }
+    .style-b .bg-zinc-900\/30   { background-color: #0f1118 !important; }
+    .style-b .bg-zinc-800,
+    .style-b .bg-zinc-800\/95,
+    .style-b .bg-zinc-800\/80,
+    .style-b .bg-zinc-800\/50,
+    .style-b .bg-zinc-800\/40,
+    .style-b .bg-zinc-800\/30,
+    .style-b .bg-zinc-800\/20,
+    .style-b .bg-zinc-800\/15,
+    .style-b .bg-zinc-800\/10 { background-color: #1a1d28 !important; }
+    .style-b .bg-zinc-700,
+    .style-b .bg-zinc-700\/50,
+    .style-b .bg-zinc-700\/40   { background-color: #252836 !important; }
+    .style-b .bg-zinc-100       { background-color: #dde0ea !important; }
+    .style-b .bg-black\/70,
+    .style-b .bg-black\/80      { background-color: rgba(6,7,10,0.85) !important; }
+
+    /* Text */
+    .style-b .text-zinc-50      { color: #e4e7f0 !important; }
+    .style-b .text-zinc-100     { color: #d0d3de !important; }
+    .style-b .text-zinc-200     { color: #b8bbc7 !important; }
+    .style-b .text-zinc-300     { color: #9a9eae !important; }
+    .style-b .text-zinc-400     { color: #787d90 !important; }
+    .style-b .text-zinc-500     { color: #5e6378 !important; }
+    .style-b .text-zinc-600     { color: #484c5e !important; }
+    .style-b .text-zinc-900     { color: #0c0e14 !important; }
+    .style-b .text-white        { color: #e4e7f0 !important; }
+
+    /* Borders */
+    .style-b .border-zinc-800\/50 { border-color: #262a36 !important; }
+    .style-b .border-zinc-800\/30 { border-color: #222531 !important; }
+    .style-b .border-zinc-700\/50 { border-color: #343848 !important; }
+    .style-b .border-\[\#555\]\/50 { border-color: #3a3e50 !important; }
+
+    /* Hover states */
+    .style-b .hover\:bg-zinc-800:hover,
+    .style-b .hover\:bg-zinc-800\/60:hover { background-color: #222633 !important; }
+    .style-b .hover\:bg-zinc-700:hover,
+    .style-b .hover\:bg-zinc-700\/40:hover,
+    .style-b .hover\:bg-zinc-700\/50:hover { background-color: #2e3240 !important; }
+    .style-b .hover\:bg-white:hover        { background-color: #e4e7f0 !important; }
+    .style-b .hover\:text-zinc-200:hover   { color: #b8bbc7 !important; }
+    .style-b .hover\:text-zinc-300:hover   { color: #9a9eae !important; }
+
+    /* Placeholder / Focus */
+    .style-b .placeholder-zinc-600::placeholder { color: #484c5e !important; }
+    .style-b .focus\:border-zinc-500:focus      { border-color: #5e6378 !important; }
+    .style-b .ring-zinc-500,
+    .style-b .focus\:ring-zinc-500:focus         { --tw-ring-color: #5e6378 !important; }
+
+    /* Weekend / tooltip / shadow */
+    .style-b .weekend-cell   { background-color: #0f1118 !important; color: #484c5e !important; }
+    .style-b #chartTooltip   { background-color: rgba(26,29,40,0.97) !important; color: #d0d3de !important; border-color: #343848 !important; }
+    .style-b #statTooltip    { background-color: #1a1d28 !important; color: #d0d3de !important; border-color: #343848 !important; }
+    .style-b .shadow-black\/20 { --tw-shadow-color: rgba(0,0,0,0.3) !important; }
+    .style-b .shadow-xl,
+    .style-b .shadow-2xl       { --tw-shadow: 0 4px 16px rgba(0,0,0,0.4) !important; }
+
+    /* Profit / Loss colors */
     .style-b .text-profit,
-    .style-b .text-profit\/80 { color: #14F488 !important; }
+    .style-b .text-profit\/80  { color: #14F488 !important; }
     .style-b .text-loss,
-    .style-b .text-loss\/80 { color: #6C5CE7 !important; }
-    .style-b .bg-profit\/10 { background-color: rgba(20,244,136,0.12) !important; }
-    .style-b .bg-profit\/5  { background-color: rgba(20,244,136,0.06) !important; }
-    .style-b .bg-loss\/10   { background-color: rgba(108,92,231,0.12) !important; }
-    .style-b .bg-loss\/5    { background-color: rgba(108,92,231,0.06) !important; }
-    .style-b .border-profit\/20 { border-color: rgba(20,244,136,0.3) !important; }
-    .style-b .border-profit\/15 { border-color: rgba(20,244,136,0.25) !important; }
-    .style-b .border-loss\/20   { border-color: rgba(108,92,231,0.3) !important; }
-    .style-b .border-loss\/15   { border-color: rgba(108,92,231,0.25) !important; }
-    .style-b .hover\:bg-profit\/20:hover { background-color: rgba(20,244,136,0.2) !important; }
-    .style-b .hover\:bg-loss\/20:hover   { background-color: rgba(108,92,231,0.2) !important; }
-    .style-b .hover\:bg-loss\/10:hover   { background-color: rgba(108,92,231,0.15) !important; }
-    .style-b .bg-loss { background-color: #6C5CE7 !important; }
+    .style-b .text-loss\/80    { color: #6C5CE7 !important; }
+    .style-b .bg-profit\/10    { background-color: rgba(20,244,136,0.10) !important; }
+    .style-b .bg-profit\/5     { background-color: rgba(20,244,136,0.05) !important; }
+    .style-b .bg-loss\/10      { background-color: rgba(108,92,231,0.10) !important; }
+    .style-b .bg-loss\/5       { background-color: rgba(108,92,231,0.05) !important; }
+    .style-b .border-profit\/20 { border-color: rgba(20,244,136,0.25) !important; }
+    .style-b .border-profit\/15 { border-color: rgba(20,244,136,0.20) !important; }
+    .style-b .border-loss\/20   { border-color: rgba(108,92,231,0.25) !important; }
+    .style-b .border-loss\/15   { border-color: rgba(108,92,231,0.20) !important; }
+    .style-b .hover\:bg-profit\/20:hover { background-color: rgba(20,244,136,0.18) !important; }
+    .style-b .hover\:bg-loss\/20:hover   { background-color: rgba(108,92,231,0.18) !important; }
+    .style-b .hover\:bg-loss\/10:hover   { background-color: rgba(108,92,231,0.12) !important; }
+    .style-b .bg-loss          { background-color: #6C5CE7 !important; }
     .style-b .hover\:bg-\[#D63A8F\]:hover { background-color: #5A4ECF !important; }
 
-    /* Theme B: sharp corners */
+    /* Progress bar track */
+    .style-b #progressBar .bg-zinc-800\/60 { background-color: #1e2230 !important; }
+
+    /* Sharp corners */
     .style-b .rounded,
     .style-b .rounded-lg,
     .style-b .rounded-xl,
     .style-b .rounded-2xl,
     .style-b .rounded-full { border-radius: 0 !important; }
 
-    /* Light + Style B combined */
+    /* ——— Light + Style B combined ——— */
+    .light-theme.style-b body { background-color: #f5f6f8 !important; color: #1e2230 !important; }
+
+    /* Backgrounds */
+    .light-theme.style-b .bg-zinc-950       { background-color: #f5f6f8 !important; }
+    .light-theme.style-b .bg-zinc-900,
+    .light-theme.style-b .bg-zinc-900\/80   { background-color: #ffffff !important; }
+    .light-theme.style-b .bg-zinc-900\/30   { background-color: #f5f6f8 !important; }
+    .light-theme.style-b .bg-zinc-800,
+    .light-theme.style-b .bg-zinc-800\/95,
+    .light-theme.style-b .bg-zinc-800\/80,
+    .light-theme.style-b .bg-zinc-800\/60,
+    .light-theme.style-b .bg-zinc-800\/50,
+    .light-theme.style-b .bg-zinc-800\/40,
+    .light-theme.style-b .bg-zinc-800\/30,
+    .light-theme.style-b .bg-zinc-800\/20,
+    .light-theme.style-b .bg-zinc-800\/15,
+    .light-theme.style-b .bg-zinc-800\/10 { background-color: #f0f1f4 !important; }
+    .light-theme.style-b .bg-zinc-700,
+    .light-theme.style-b .bg-zinc-700\/50,
+    .light-theme.style-b .bg-zinc-700\/40   { background-color: #e8e9ed !important; }
+    .light-theme.style-b .bg-zinc-100       { background-color: #1e2230 !important; }
+    .light-theme.style-b .bg-black\/70,
+    .light-theme.style-b .bg-black\/80      { background-color: rgba(30,34,48,0.6) !important; }
+
+    /* Text */
+    .light-theme.style-b .text-zinc-50      { color: #0f1118 !important; }
+    .light-theme.style-b .text-zinc-100     { color: #1e2230 !important; }
+    .light-theme.style-b .text-zinc-200     { color: #2e3240 !important; }
+    .light-theme.style-b .text-zinc-300     { color: #484c5e !important; }
+    .light-theme.style-b .text-zinc-400     { color: #6e7285 !important; }
+    .light-theme.style-b .text-zinc-500     { color: #8b8fa0 !important; }
+    .light-theme.style-b .text-zinc-600     { color: #9a9eae !important; }
+    .light-theme.style-b .text-zinc-900     { color: #ffffff !important; }
+    .light-theme.style-b .text-white        { color: #0f1118 !important; }
+
+    /* Borders */
+    .light-theme.style-b .border-zinc-800\/50 { border-color: #e0e1e6 !important; }
+    .light-theme.style-b .border-zinc-800\/30 { border-color: #e8e9ed !important; }
+    .light-theme.style-b .border-zinc-700\/50 { border-color: #d8d9df !important; }
+    .light-theme.style-b .border-\[\#555\]\/50 { border-color: #c8cad2 !important; }
+
+    /* Hover */
+    .light-theme.style-b .hover\:bg-zinc-800:hover,
+    .light-theme.style-b .hover\:bg-zinc-800\/60:hover { background-color: #e8e9ed !important; }
+    .light-theme.style-b .hover\:bg-zinc-700:hover,
+    .light-theme.style-b .hover\:bg-zinc-700\/40:hover,
+    .light-theme.style-b .hover\:bg-zinc-700\/50:hover { background-color: #dfe0e5 !important; }
+    .light-theme.style-b .hover\:bg-white:hover        { background-color: #f5f6f8 !important; }
+    .light-theme.style-b .hover\:text-zinc-200:hover   { color: #2e3240 !important; }
+    .light-theme.style-b .hover\:text-zinc-300:hover   { color: #484c5e !important; }
+
+    /* Placeholder / Focus / Ring */
+    .light-theme.style-b .placeholder-zinc-600::placeholder { color: #9a9eae !important; }
+    .light-theme.style-b .focus\:border-zinc-500:focus      { border-color: #6e7285 !important; }
+    .light-theme.style-b .ring-zinc-500,
+    .light-theme.style-b .focus\:ring-zinc-500:focus         { --tw-ring-color: #6e7285 !important; }
+
+    /* Weekend / Tooltip / Shadow */
+    .light-theme.style-b .weekend-cell   { background-color: #f0f1f4 !important; color: #8b8fa0 !important; }
+    .light-theme.style-b #chartTooltip   { background-color: rgba(255,255,255,0.97) !important; color: #1e2230 !important; border-color: #d8d9df !important; }
+    .light-theme.style-b #statTooltip    { background-color: #ffffff !important; color: #1e2230 !important; border-color: #d8d9df !important; }
+    .light-theme.style-b .shadow-black\/20 { --tw-shadow-color: rgba(0,0,0,0.04) !important; }
+    .light-theme.style-b .shadow-xl,
+    .light-theme.style-b .shadow-2xl       { --tw-shadow: 0 4px 12px rgba(0,0,0,0.05) !important; }
+
+    /* Profit / Loss – darker for light bg */
     .light-theme.style-b .text-profit,
-    .light-theme.style-b .text-profit\/80 { color: #0DA85D !important; }
+    .light-theme.style-b .text-profit\/80  { color: #0DA85D !important; }
     .light-theme.style-b .text-loss,
-    .light-theme.style-b .text-loss\/80 { color: #4A3DB5 !important; }
+    .light-theme.style-b .text-loss\/80    { color: #4A3DB5 !important; }
+    .light-theme.style-b .bg-profit\/10    { background-color: rgba(13,168,93,0.10) !important; }
+    .light-theme.style-b .bg-profit\/5     { background-color: rgba(13,168,93,0.05) !important; }
+    .light-theme.style-b .bg-loss\/10      { background-color: rgba(74,61,181,0.10) !important; }
+    .light-theme.style-b .bg-loss\/5       { background-color: rgba(74,61,181,0.05) !important; }
+    .light-theme.style-b .border-profit\/20 { border-color: rgba(13,168,93,0.25) !important; }
+    .light-theme.style-b .border-profit\/15 { border-color: rgba(13,168,93,0.20) !important; }
+    .light-theme.style-b .border-loss\/20   { border-color: rgba(74,61,181,0.25) !important; }
+    .light-theme.style-b .border-loss\/15   { border-color: rgba(74,61,181,0.20) !important; }
+    .light-theme.style-b .hover\:bg-profit\/20:hover { background-color: rgba(13,168,93,0.15) !important; }
+    .light-theme.style-b .hover\:bg-loss\/20:hover   { background-color: rgba(74,61,181,0.15) !important; }
+    .light-theme.style-b .hover\:bg-loss\/10:hover   { background-color: rgba(74,61,181,0.10) !important; }
+    .light-theme.style-b .bg-loss          { background-color: #4A3DB5 !important; }
+    .light-theme.style-b .hover\:bg-\[#D63A8F\]:hover { background-color: #3D32A0 !important; }
+
+    /* Progress bar track */
+    .light-theme.style-b #progressBar .bg-zinc-800\/60 { background-color: #e8e9ed !important; }
   </style>
 </head>
 <body class="bg-zinc-950 text-zinc-100 min-h-screen font-sans antialiased">
@@ -396,7 +548,7 @@
           取消
         </button>
         <button onclick="doClearMonth()"
-          class="px-5 py-2.5 text-sm font-semibold bg-loss text-white hover:bg-[#D63A8F] rounded-xl transition-colors">
+          class="px-5 py-2.5 text-sm font-semibold bg-loss rounded-xl transition-colors hover:brightness-90" style="color:#fff">
           确认清空
         </button>
       </div>
@@ -439,7 +591,7 @@
         <button onclick="closeDeleteAccountModal()"
           class="px-5 py-2.5 text-sm font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-xl transition-colors">取消</button>
         <button onclick="confirmDeleteAccount()"
-          class="px-5 py-2.5 text-sm font-semibold bg-loss text-white hover:bg-[#D63A8F] rounded-xl transition-colors">确认删除</button>
+          class="px-5 py-2.5 text-sm font-semibold bg-loss rounded-xl transition-colors hover:brightness-90" style="color:#fff">确认删除</button>
       </div>
     </div>
   </div>
@@ -1444,15 +1596,24 @@
 
     // Theme-aware colors
     const isLight = getTheme() === 'light';
+    const isStyleB = getColorStyle() === 'B';
     const TC = {
-      grid: isLight ? 'rgba(148,163,184,0.12)' : 'rgba(255,255,255,0.04)',
-      zeroLine: isLight ? 'rgba(100,116,139,0.5)' : 'rgba(255,255,255,0.15)',
-      label: isLight ? 'rgba(71,85,105,0.7)' : 'rgba(255,255,255,0.30)',
+      grid: isStyleB
+        ? (isLight ? 'rgba(160,165,180,0.12)' : 'rgba(140,148,170,0.05)')
+        : (isLight ? 'rgba(148,163,184,0.12)' : 'rgba(255,255,255,0.04)'),
+      zeroLine: isStyleB
+        ? (isLight ? 'rgba(120,126,142,0.35)' : 'rgba(140,148,170,0.18)')
+        : (isLight ? 'rgba(100,116,139,0.5)' : 'rgba(255,255,255,0.15)'),
+      label: isStyleB
+        ? (isLight ? 'rgba(90,95,112,0.55)' : 'rgba(140,148,170,0.35)')
+        : (isLight ? 'rgba(71,85,105,0.7)' : 'rgba(255,255,255,0.30)'),
       green: getProfitColor(),
       red: getLossColor(),
       greenFill: hexToRgba(getProfitColor(), 0.10),
       redFill: hexToRgba(getLossColor(), 0.10),
-      hoverLine: isLight ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.10)',
+      hoverLine: isStyleB
+        ? (isLight ? 'rgba(0,0,0,0.08)' : 'rgba(140,148,170,0.08)')
+        : (isLight ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.10)'),
       gray: '#888888',
     };
 
