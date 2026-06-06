@@ -234,7 +234,16 @@
     </header>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-5 gap-2 sm:gap-3 mb-6" id="statsCards"></div>
+    <div class="grid grid-cols-5 gap-2 sm:gap-3 mb-4" id="statsCards"></div>
+
+    <!-- Progress Bar -->
+    <div id="progressBar" class="mb-4">
+      <div class="relative h-2 bg-zinc-800/60 rounded-full overflow-hidden">
+        <div id="progressCenter" class="absolute top-0 bottom-0 w-0.5 bg-white z-10 rounded-full transition-all duration-300" style="left:50%"></div>
+        <div id="progressLoss"   class="absolute top-0 bottom-0 right-0 rounded-full transition-all duration-300" style="width:0%"></div>
+        <div id="progressProfit" class="absolute top-0 bottom-0 left-0 rounded-full transition-all duration-300" style="width:0%"></div>
+      </div>
+    </div>
 
     <!-- Month Navigation -->
     <div class="flex items-center justify-between mb-4">
@@ -783,6 +792,7 @@
     setMaxLoss(Math.abs(val));
     closeMaxLossModal();
     renderStatsCards();
+    renderProgressBar();
     showToast('最大亏损已更新');
   }
 
@@ -792,6 +802,7 @@
     setProfitTarget(Math.abs(val));
     closeTargetModal();
     renderStatsCards();
+    renderProgressBar();
     showToast('目标盈利已更新');
   }
 
@@ -860,6 +871,7 @@
     setInitialBalance(initial);
     closeBalanceModal();
     refreshBalanceDisplay();
+    renderProgressBar();
     showToast('初始资金已更新');
   }
 
@@ -1130,6 +1142,7 @@
 
   function renderAll() {
     renderStatsCards();
+    renderProgressBar();
     renderCalendar();
     renderAdvancedStats();
     drawChart();
@@ -1179,6 +1192,56 @@
           <div class="text-sm sm:text-base font-sans font-semibold text-zinc-50">${fmtPnL(c.value)}</div>
         </div>`;
     }).join('');
+  }
+
+  function renderProgressBar() {
+    const center  = document.getElementById('progressCenter');
+    const lossBar = document.getElementById('progressLoss');
+    const profitBar = document.getElementById('progressProfit');
+    if (!center || !lossBar || !profitBar) return;
+
+    const initial = getInitialBalance();
+    const target  = getProfitTarget();
+    const maxLoss = getMaxLoss();
+    const range   = maxLoss + target;
+
+    // Compute the centre‑marker position (%) from left
+    const centerPct = range > 0 ? (maxLoss / range * 100) : 50;
+
+    // All‑time net worth
+    const allPnL = sumPnL(Object.entries(pnlData)
+      .filter(([k]) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+      .map(([, v]) => v));
+    const netWorth = initial + allPnL;
+
+    // Loss side: red bar extending left from centre
+    if (maxLoss > 0 && netWorth < initial) {
+      const lossRatio = Math.min(1, (initial - netWorth) / maxLoss);
+      lossBar.style.width = (lossRatio * centerPct).toFixed(1) + '%';
+      lossBar.style.right  = (100 - centerPct).toFixed(1) + '%';
+      lossBar.style.left   = 'auto';
+      lossBar.style.background = 'linear-gradient(to right, #F543A5, rgba(245,67,165,0.25))';
+    } else {
+      lossBar.style.width = '0%';
+      lossBar.style.right = (100 - centerPct).toFixed(1) + '%';
+      lossBar.style.left  = 'auto';
+    }
+
+    // Profit side: green bar extending right from centre
+    if (target > 0 && netWorth > initial) {
+      const profitRatio = Math.min(1, (netWorth - initial) / target);
+      profitBar.style.width = (profitRatio * (100 - centerPct)).toFixed(1) + '%';
+      profitBar.style.left  = centerPct.toFixed(1) + '%';
+      profitBar.style.right = 'auto';
+      profitBar.style.background = 'linear-gradient(to right, rgba(162,231,54,0.25), #A2E736)';
+    } else {
+      profitBar.style.width = '0%';
+      profitBar.style.left  = centerPct.toFixed(1) + '%';
+      profitBar.style.right = 'auto';
+    }
+
+    // Position centre marker
+    center.style.left = centerPct.toFixed(1) + '%';
   }
 
   function renderCalendar() {
