@@ -1152,7 +1152,7 @@
       { label: '本月', value: monthPnL, type: 'pnl' },
       { label: `${currentYear}年`, value: yearPnL, type: 'pnl' },
       { label: '全部', value: allPnL, type: 'pnl' },
-      { label: '目标', value: target, type: 'target' },
+      { label: '盈利目标', value: target, type: 'target' },
       { label: '最大亏损', value: maxLoss, type: 'maxLoss' },
     ];
 
@@ -1162,7 +1162,7 @@
         return `
           <div class="bg-zinc-900/80 rounded-xl p-2 sm:p-3 border border-zinc-800/50 text-center cursor-pointer hover:bg-zinc-800/60 transition-colors" onclick="openTargetModal()" title="点击设置目标盈利">
             <div class="text-[10px] sm:text-xs text-zinc-500 mb-0.5">${c.label}</div>
-            <div class="text-sm sm:text-base font-sans font-semibold ${has ? 'text-zinc-50' : 'text-zinc-500'}">${has ? fmtPnL(c.value) : '--'}</div>
+            <div class="text-sm sm:text-base font-sans font-semibold ${has ? 'text-profit' : 'text-zinc-500'}">${has ? fmtPnL(c.value) : '--'}</div>
           </div>`;
       }
       if (c.type === 'maxLoss') {
@@ -1173,11 +1173,10 @@
             <div class="text-sm sm:text-base font-sans font-semibold ${has ? 'text-loss' : 'text-zinc-500'}">${has ? fmtPnL(c.value) : '--'}</div>
           </div>`;
       }
-      const cls = c.value > 0 ? 'text-profit' : c.value < 0 ? 'text-loss' : 'text-zinc-400';
       return `
         <div class="bg-zinc-900/80 rounded-xl p-2 sm:p-3 border border-zinc-800/50 text-center">
           <div class="text-[10px] sm:text-xs text-zinc-500 mb-0.5">${c.label}</div>
-          <div class="text-sm sm:text-base font-sans font-semibold ${cls}">${fmtPnL(c.value)}</div>
+          <div class="text-sm sm:text-base font-sans font-semibold text-zinc-50">${fmtPnL(c.value)}</div>
         </div>`;
     }).join('');
   }
