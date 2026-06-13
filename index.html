@@ -1963,18 +1963,17 @@
 
   // ---- Import / Export ----
   function exportData() {
-    const exportData = {};
-    for (const [k, v] of Object.entries(pnlData)) {
-      if (k !== INITIAL_BALANCE_KEY && k !== BALANCE_LOCKED_KEY && k !== PROFIT_TARGET_KEY && k !== MAX_LOSS_KEY && k !== STATUS_KEY) exportData[k] = v;
-    }
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    // Save current account data first, then export all accounts
+    allAccounts[currentAccount] = pnlData;
+    const blob = new Blob([JSON.stringify(allAccounts, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `pnl-${currentAccount}-${fmtDate(currentYear, currentMonth, 1)}.json`;
+    a.download = `pnl-all-accounts-${fmtDate(currentYear, currentMonth, 1)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast('导出成功');
+    const count = Object.keys(allAccounts).length;
+    showToast(`已导出 ${count} 个账户`);
   }
 
   function importData(event) {
@@ -1985,15 +1984,49 @@
       try {
         const imported = JSON.parse(e.target.result);
         if (typeof imported !== 'object' || Array.isArray(imported)) throw new Error('Invalid format');
-        for (const [key, val] of Object.entries(imported)) {
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) throw new Error(`Invalid date key: ${key}`);
-          if (typeof val.pnl !== 'number') throw new Error(`Invalid pnl for ${key}`);
+
+        const keys = Object.keys(imported);
+        if (keys.length === 0) throw new Error('Empty data');
+
+        // Detect format: old (date-keyed → current account) or new (account-keyed)
+        const isOldFormat = keys.some(k => /^\d{4}-\d{2}-\d{2}$/.test(k));
+
+        if (isOldFormat) {
+          // Old single-account format: import into current account
+          for (const [key, val] of Object.entries(imported)) {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) throw new Error(`Invalid date key: ${key}`);
+            if (typeof val.pnl !== 'number') throw new Error(`Invalid pnl for ${key}`);
+          }
+          const count = Object.keys(imported).length;
+          Object.assign(pnlData, imported);
+          saveData();
+          renderAll();
+          showToast(`已导入 ${count} 条记录到「${currentAccount}」`);
+        } else {
+          // New multi-account format
+          let accountCount = 0, recordCount = 0;
+          for (const [accName, accData] of Object.entries(imported)) {
+            if (typeof accData !== 'object' || accData === null) continue;
+            if (!allAccounts[accName]) {
+              allAccounts[accName] = accData;
+            } else {
+              Object.assign(allAccounts[accName], accData);
+            }
+            accountCount++;
+            recordCount += Object.keys(accData).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).length;
+          }
+          // Restore current account (might have been overwritten)
+          pnlData = allAccounts[currentAccount];
+          if (!pnlData) {
+            currentAccount = Object.keys(allAccounts)[0] || '默认账户';
+            pnlData = allAccounts[currentAccount];
+          }
+          localStorage.setItem(CALENDARS_KEY, JSON.stringify(allAccounts));
+          localStorage.setItem(LAST_ACCOUNT_KEY, currentAccount);
+          refreshAccountBtn();
+          renderAll();
+          showToast(`已导入 ${accountCount} 个账户，共 ${recordCount} 条记录`);
         }
-        const count = Object.keys(imported).length;
-        Object.assign(pnlData, imported);
-        saveData();
-        renderAll();
-        showToast(`已导入 ${count} 条记录`);
       } catch (err) {
         showToast('导入失败：文件格式不正确', 'error');
         console.error(err);
