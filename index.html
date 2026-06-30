@@ -1753,36 +1753,36 @@
     const rawCurvePts = points.map(p => ({ x: xPos(p.idx), y: yS(p.value) }));
     const curvePts = getCurvePoints(rawCurvePts, 16);
 
-    // ---- Fill areas ----
-    function fillSegment(x0, y0v, x1, y1v, color, yBase) {
+    // ---- Fill areas (use smoothed curvePts to match the curve exactly) ----
+    function fillCurveSegment(x0, y0v, x1, y1v, color) {
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.moveTo(x0, yS(y0v));
-      ctx.lineTo(x1, yS(y1v));
-      ctx.lineTo(x1, yBase);
-      ctx.lineTo(x0, yBase);
+      ctx.moveTo(x0, y0v);
+      ctx.lineTo(x1, y1v);
+      ctx.lineTo(x1, y0);
+      ctx.lineTo(x0, y0);
       ctx.closePath();
       ctx.fill();
     }
 
-    for (let i = 0; i < points.length - 1; i++) {
-      const p0 = points[i], p1 = points[i + 1];
-      const x0_ = xPos(p0.idx), x1_ = xPos(p1.idx);
-      const v0 = p0.value, v1 = p1.value;
+    for (let i = 0; i < curvePts.length - 1; i++) {
+      const p0 = curvePts[i], p1 = curvePts[i + 1];
+      const y0v = p0.y, y1v = p1.y;
 
-      if (v0 >= 0 && v1 >= 0) {
-        fillSegment(x0_, v0, x1_, v1, TC.greenFill, y0);
-      } else if (v0 <= 0 && v1 <= 0) {
-        fillSegment(x0_, v0, x1_, v1, TC.redFill, y0);
+      if (y0v <= y0 && y1v <= y0) {
+        fillCurveSegment(p0.x, y0v, p1.x, y1v, TC.greenFill);
+      } else if (y0v >= y0 && y1v >= y0) {
+        fillCurveSegment(p0.x, y0v, p1.x, y1v, TC.redFill);
       } else {
-        const t = v0 / (v0 - v1);
-        const cx = x0_ + t * (x1_ - x0_);
-        if (v0 > 0) {
-          fillSegment(x0_, v0, cx, 0, TC.greenFill, y0);
-          fillSegment(cx, 0, x1_, v1, TC.redFill, y0);
+        // Segment crosses y0: compute intersection and split
+        const t = (y0 - y0v) / (y1v - y0v);
+        const cx = p0.x + t * (p1.x - p0.x);
+        if (y0v < y0) {
+          fillCurveSegment(p0.x, y0v, cx, y0, TC.greenFill);
+          fillCurveSegment(cx, y0, p1.x, y1v, TC.redFill);
         } else {
-          fillSegment(x0_, v0, cx, 0, TC.redFill, y0);
-          fillSegment(cx, 0, x1_, v1, TC.greenFill, y0);
+          fillCurveSegment(p0.x, y0v, cx, y0, TC.redFill);
+          fillCurveSegment(cx, y0, p1.x, y1v, TC.greenFill);
         }
       }
     }
